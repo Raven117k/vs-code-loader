@@ -56,13 +56,9 @@ class RootfsBootstrapper(private val context: Context) {
     }
 
     fun getDefaultRootfsUrl(distro: String): String {
-        val abi = getDeviceAbi()
         return if (distro == "Alpine") {
-            if (abi == "x86_64") {
-                "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/alpine-minirootfs-3.19.1-x86_64.tar.gz"
-            } else {
-                "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/aarch64/alpine-minirootfs-3.19.1-aarch64.tar.gz"
-            }
+            // The published proot binaries in this project are aarch64, so use the matching Alpine aarch64 rootfs.
+            "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/aarch64/alpine-minirootfs-3.19.1-aarch64.tar.gz"
         } else {
             // Debian rootfs from Termux's own proot-distro releases (real, versioned, checksummed)
             // NOTE: verify "v1.10.1" is still current at

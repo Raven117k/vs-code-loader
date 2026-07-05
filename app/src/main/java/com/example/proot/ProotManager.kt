@@ -64,14 +64,8 @@ class ProotManager(private val context: Context) {
         return mapOf(
             "LD_PRELOAD" to "",
             "LD_LIBRARY_PATH" to "",
-            // Fixed typo: added both common variants to be absolutely safe
             "PROOT_TMPDIR" to tmpDir.absolutePath,
             "PROOT_TMP_DIR" to tmpDir.absolutePath,
-            // Forces PRoot to use the companion loader binary instead of ptrace()
-            "PROOT_LOADER" to prootLoader.absolutePath,
-            "PROOT_UNBUNDLE_LOADER" to prootLoader.absolutePath,
-            // Forces PRoot to bypass the SE Linux Seccomp filter blocks on Android
-            "PROOT_NO_SECCOMP" to "1",
             "HOME" to "/root",
             "PATH" to "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
         )
