@@ -195,9 +195,18 @@ class RootfsBootstrapper(private val context: Context) {
         try {
             AppLogger.log("Bootstrapper", "Executing system tar command to extract rootfs...")
             val tarFlag = if (ext == "tar.xz") "-xJf" else "-xzf"
-            // Android toybox tar handles symlinks and file attributes perfectly
+            // Android toybox tar rejects ownership/chown metadata in this context,
+            // so we skip owner/permission restoration to keep extraction working.
             val process = ProcessBuilder()
-                .command("tar", tarFlag, archive.absolutePath, "-C", destinationDir.absolutePath)
+                .command(
+                    "tar",
+                    "--no-same-owner",
+                    "--no-same-permissions",
+                    tarFlag,
+                    archive.absolutePath,
+                    "-C",
+                    destinationDir.absolutePath
+                )
                 .redirectErrorStream(true)
                 .start()
 
