@@ -12,7 +12,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
-import java.io.InputStream
 
 class RootfsBootstrapper(private val context: Context) {
 
@@ -48,23 +47,34 @@ class RootfsBootstrapper(private val context: Context) {
     }
 
     fun getProotUrl(): String {
-        return "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-aarch64"
+        val abi = getDeviceAbi()
+        return if (abi == "x86_64") {
+            "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-x86_64"
+        } else {
+            "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-aarch64"
+        }
     }
 
     fun getProotLoaderUrl(): String {
-        return "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-loader-aarch64"
+        val abi = getDeviceAbi()
+        return if (abi == "x86_64") {
+            "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-loader-x86_64"
+        } else {
+            "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-loader-aarch64"
+        }
     }
 
     fun getDefaultRootfsUrl(distro: String): String {
+        val abi = getDeviceAbi()
         return if (distro == "Alpine") {
-            // The published proot binaries in this project are aarch64, so use the matching Alpine aarch64 rootfs.
-            "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/aarch64/alpine-minirootfs-3.19.1-aarch64.tar.gz"
+            if (abi == "x86_64") {
+                "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/alpine-minirootfs-3.19.1-x86_64.tar.gz"
+            } else {
+                "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/aarch64/alpine-minirootfs-3.19.1-aarch64.tar.gz"
+            }
         } else {
-            // Debian rootfs from Termux's own proot-distro releases (real, versioned, checksummed)
-            // NOTE: verify "v1.10.1" is still current at
-            // https://github.com/termux/proot-distro/releases before relying on this
             val version = "v1.10.1"
-            val distroAbi = if (systemAbi == "x86_64") "x86_64" else "aarch64"
+            val distroAbi = if (abi == "x86_64") "x86_64" else "aarch64"
             "https://github.com/termux/proot-distro/releases/download/$version/debian-$distroAbi-pd-$version.tar.xz"
         }
     }
@@ -72,6 +82,9 @@ class RootfsBootstrapper(private val context: Context) {
     suspend fun bootstrap(distro: String, customRootfsUrl: String? = null): Boolean = withContext(Dispatchers.IO) {
         AppLogger.log("Bootstrapper", "Starting bootstrap process for $distro...")
         _progress.value = 0f
+        
+        val completeFlag = File(filesDir, ".setup_complete")
+        if (completeFlag.exists()) completeFlag.delete()
         
         try {
             // 1. Download proot binary + loader
@@ -127,7 +140,6 @@ class RootfsBootstrapper(private val context: Context) {
 
             val success = extractTarball(archiveFile, rootfsDir, archiveExt)
             if (success) {
-                // Write a flag indicating success
                 File(filesDir, ".setup_complete").createNewFile()
                 AppLogger.log("Bootstrapper", "Rootfs setup complete!")
                 _status.value = "Setup completed successfully!"
@@ -189,8 +201,6 @@ class RootfsBootstrapper(private val context: Context) {
         try {
             AppLogger.log("Bootstrapper", "Executing system tar command to extract rootfs...")
             val tarFlag = if (ext == "tar.xz") "-xJf" else "-xzf"
-            // Android toybox tar rejects ownership/chown metadata in this context,
-            // so we skip owner/permission restoration to keep extraction working.
             val process = ProcessBuilder()
                 .command(
                     "tar",
@@ -213,7 +223,6 @@ class RootfsBootstrapper(private val context: Context) {
             val exitCode = process.waitFor()
             AppLogger.log("Bootstrapper", "Tar finished with exit code: $exitCode")
             
-            // Clean up temporary archive
             if (archive.exists()) {
                 archive.delete()
             }
