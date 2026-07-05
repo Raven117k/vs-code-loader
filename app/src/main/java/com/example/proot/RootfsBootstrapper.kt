@@ -177,6 +177,12 @@ class RootfsBootstrapper(private val context: Context) {
         try {
             AppLogger.log("Bootstrapper", "Executing system tar command to extract rootfs...")
             val tarFlag = if (ext == "tar.xz") "-xJf" else "-xzf"
+            val tempExtractDir = File(destinationDir.parentFile, "${destinationDir.name}_extract")
+            if (tempExtractDir.exists()) {
+                tempExtractDir.deleteRecursively()
+            }
+            tempExtractDir.mkdirs()
+
             val process = ProcessBuilder()
                 .command(
                     "tar",
@@ -184,7 +190,7 @@ class RootfsBootstrapper(private val context: Context) {
                     tarFlag,
                     archive.absolutePath,
                     "-C",
-                    destinationDir.absolutePath
+                    tempExtractDir.absolutePath
                 )
                 .redirectErrorStream(true)
                 .start()
@@ -197,15 +203,43 @@ class RootfsBootstrapper(private val context: Context) {
 
             val exitCode = process.waitFor()
             AppLogger.log("Bootstrapper", "Tar finished with exit code: $exitCode")
-            
+
+            if (exitCode == 0) {
+                val extractedEntries = tempExtractDir.listFiles() ?: emptyArray()
+                val sourceRoot = if (extractedEntries.size == 1 && extractedEntries[0].isDirectory()) {
+                    extractedEntries[0]
+                } else {
+                    tempExtractDir
+                }
+
+                copyDirectoryContents(sourceRoot, destinationDir)
+                tempExtractDir.deleteRecursively()
+            }
+
             if (archive.exists()) {
                 archive.delete()
             }
-            
+
             return exitCode == 0
         } catch (e: Exception) {
             AppLogger.log("Bootstrapper", "Tar extraction exception: ${e.message}")
             return false
+        }
+    }
+
+    private fun copyDirectoryContents(sourceDir: File, destinationDir: File) {
+        sourceDir.listFiles()?.forEach { entry ->
+            val target = File(destinationDir, entry.name)
+            if (entry.isDirectory) {
+                target.mkdirs()
+                copyDirectoryContents(entry, target)
+            } else {
+                target.parentFile?.mkdirs()
+                entry.copyTo(target, overwrite = true)
+                if (entry.canExecute()) {
+                    target.setExecutable(true, false)
+                }
+            }
         }
     }
 
@@ -217,39 +251,16 @@ class RootfsBootstrapper(private val context: Context) {
     }
 
     private fun normalizeRootfsPermissions() {
-        try {
-            AppLogger.log("Bootstrapper", "Normalizing rootfs permissions to satisfy Android W^X rules...")
-            val chmodProcess = ProcessBuilder("chmod", "-R", "a-wX", rootfsDir.absolutePath)
-                .redirectErrorStream(true)
-                .start()
-
-            val reader = chmodProcess.inputStream.bufferedReader()
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                AppLogger.log("Chmod", line ?: "")
-            }
-
-            val exitCode = chmodProcess.waitFor()
-            AppLogger.log("Bootstrapper", "chmod finished with exit code: $exitCode")
-        } catch (e: Exception) {
-            AppLogger.log("Bootstrapper", "Rootfs permission normalization failed: ${e.message}")
-        }
-
         listOf(
             File(rootfsDir, "bin/sh"),
             File(rootfsDir, "bin/busybox"),
-            File(rootfsDir, "bin/bash")
+            File(rootfsDir, "bin/bash"),
+            File(rootfsDir, "usr/bin/sh"),
+            File(rootfsDir, "usr/bin/bash")
         ).forEach { file ->
             if (file.exists()) {
-                try {
-                    val chmodProcess = ProcessBuilder("chmod", "755", file.absolutePath)
-                        .redirectErrorStream(true)
-                        .start()
-                    val exitCode = chmodProcess.waitFor()
-                    AppLogger.log("Bootstrapper", "Set mode 755 for ${file.absolutePath} (exit $exitCode)")
-                } catch (e: Exception) {
-                    AppLogger.log("Bootstrapper", "Failed to set permissions for ${file.absolutePath}: ${e.message}")
-                }
+                file.setExecutable(true, false)
+                AppLogger.log("Bootstrapper", "Restored executable permission for ${file.absolutePath}")
             }
         }
     }
