@@ -115,7 +115,7 @@ class RootfsBootstrapper(private val context: Context) {
             val success = extractTarball(archiveFile, rootfsDir, archiveExt)
             if (success) {
                 ensureRootfsFallbackDirs()
-                restoreRootfsExecutables()
+                normalizeRootfsPermissions()
                 File(filesDir, ".setup_complete").createNewFile()
                 AppLogger.log("Bootstrapper", "Rootfs setup complete!")
                 _status.value = "Setup completed successfully!"
@@ -216,15 +216,40 @@ class RootfsBootstrapper(private val context: Context) {
         File(rootfsDir, "root").apply { if (!exists()) mkdirs() }
     }
 
-    private fun restoreRootfsExecutables() {
+    private fun normalizeRootfsPermissions() {
+        try {
+            AppLogger.log("Bootstrapper", "Normalizing rootfs permissions to satisfy Android W^X rules...")
+            val chmodProcess = ProcessBuilder("chmod", "-R", "a-wX", rootfsDir.absolutePath)
+                .redirectErrorStream(true)
+                .start()
+
+            val reader = chmodProcess.inputStream.bufferedReader()
+            var line: String?
+            while (reader.readLine().also { line = it } != null) {
+                AppLogger.log("Chmod", line ?: "")
+            }
+
+            val exitCode = chmodProcess.waitFor()
+            AppLogger.log("Bootstrapper", "chmod finished with exit code: $exitCode")
+        } catch (e: Exception) {
+            AppLogger.log("Bootstrapper", "Rootfs permission normalization failed: ${e.message}")
+        }
+
         listOf(
             File(rootfsDir, "bin/sh"),
             File(rootfsDir, "bin/busybox"),
             File(rootfsDir, "bin/bash")
         ).forEach { file ->
             if (file.exists()) {
-                file.setExecutable(true, false)
-                AppLogger.log("Bootstrapper", "Restored executable permission for ${file.absolutePath}")
+                try {
+                    val chmodProcess = ProcessBuilder("chmod", "755", file.absolutePath)
+                        .redirectErrorStream(true)
+                        .start()
+                    val exitCode = chmodProcess.waitFor()
+                    AppLogger.log("Bootstrapper", "Set mode 755 for ${file.absolutePath} (exit $exitCode)")
+                } catch (e: Exception) {
+                    AppLogger.log("Bootstrapper", "Failed to set permissions for ${file.absolutePath}: ${e.message}")
+                }
             }
         }
     }
