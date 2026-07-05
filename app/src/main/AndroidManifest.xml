@@ -42,6 +42,14 @@
             android:configChanges="orientation|screenSize|keyboard|keyboardHidden">
         </activity>
 
+        <activity
+            android:name=".termux.TermuxTerminalActivity"
+            android:exported="false"
+            android:label="Termux Terminal"
+            android:theme="@style/Theme.MyApplication"
+            android:windowSoftInputMode="adjustResize">
+        </activity>
+
         <!-- Background Supervisor Foreground Service -->
         <service
             android:name=".service.ServerForegroundService"

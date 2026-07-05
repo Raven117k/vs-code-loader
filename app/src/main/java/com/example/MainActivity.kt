@@ -96,6 +96,7 @@ import androidx.compose.ui.unit.sp
 import com.example.install.PackageInstaller
 import com.example.service.ServerForegroundService
 import com.example.termux.TermuxBootstrapper
+import com.example.termux.TermuxTerminalActivity
 import com.example.ui.theme.MyApplicationTheme
 import com.example.util.AppLogger
 import com.example.util.PermissionHelper
@@ -141,6 +142,9 @@ class MainActivity : ComponentActivity() {
                                 startService(intent)
                             }
                         },
+                        onOpenTerminal = {
+                            startActivity(Intent(this, TermuxTerminalActivity::class.java))
+                        },
                         onStopServer = {
                             val intent = Intent(this, ServerForegroundService::class.java).apply {
                                 action = ServerForegroundService.ACTION_STOP
@@ -161,6 +165,7 @@ fun MainControlPanel(
     installer: PackageInstaller,
     onLaunchWebView: (Boolean) -> Unit,
     onStartServer: () -> Unit,
+    onOpenTerminal: () -> Unit,
     onStopServer: () -> Unit
 ) {
     val context = LocalContext.current
@@ -446,6 +451,7 @@ fun MainControlPanel(
                     isServerRunning = isServerRunning,
                     onStartServer = onStartServer,
                     onStopServer = onStopServer,
+                    onOpenTerminal = onOpenTerminal,
                     onOpenIDE = { onLaunchWebView(false) }
                 )
             }
@@ -822,6 +828,7 @@ fun ServerStateCard(
     isServerRunning: Boolean,
     onStartServer: () -> Unit,
     onStopServer: () -> Unit,
+    onOpenTerminal: () -> Unit,
     onOpenIDE: () -> Unit
 ) {
     val containerColor = if (isServerRunning) Color(0xFF332D41) else Color(0xFF2B2930)
@@ -928,6 +935,25 @@ fun ServerStateCard(
                             Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Stop Server", fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Button(
+                        onClick = onOpenTerminal,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF49454F),
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(24.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .testTag("open_terminal_button")
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Terminal, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Open Terminal", fontWeight = FontWeight.Bold)
                         }
                     }
 
