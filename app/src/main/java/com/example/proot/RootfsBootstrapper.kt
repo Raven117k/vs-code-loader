@@ -205,7 +205,6 @@ class RootfsBootstrapper(private val context: Context) {
                 .command(
                     "tar",
                     "--no-same-owner",
-                    "--no-same-permissions",
                     tarFlag,
                     archive.absolutePath,
                     "-C",

@@ -16,7 +16,6 @@ class RootfsBootstrapperTest {
             listOf(
                 "tar",
                 "--no-same-owner",
-                "--no-same-permissions",
                 "-xzf",
                 "/tmp/rootfs.tar.gz",
                 "-C",
