@@ -5,8 +5,9 @@ import java.io.File
 
 class ProotManager(private val context: Context) {
     private val filesDir = context.filesDir
-    val prootBinary = File(File(filesDir, "proot"), "proot")
-    val prootLoader = File(File(filesDir, "proot"), "loader")
+    private val nativeLibDir = context.applicationInfo.nativeLibraryDir
+    val prootBinary = File(nativeLibDir, "libproot.so")
+    val prootLoader = File(nativeLibDir, "libprootloader.so")
     val rootfsDir = File(filesDir, "rootfs")
     
     // Ensure host tmp folder exists
@@ -16,6 +17,8 @@ class ProotManager(private val context: Context) {
     fun ensureRootfsLayout() {
         if (!rootfsDir.exists()) rootfsDir.mkdirs()
         File(rootfsDir, "tmp").apply { if (!exists()) mkdirs() }
+        File(rootfsDir, "var/tmp").apply { if (!exists()) mkdirs() }
+        File(rootfsDir, "run").apply { if (!exists()) mkdirs() }
         File(rootfsDir, "root").apply { if (!exists()) mkdirs() }
         File(rootfsDir, "dev").apply { if (!exists()) mkdirs() }
         File(rootfsDir, "proc").apply { if (!exists()) mkdirs() }
@@ -43,9 +46,13 @@ class ProotManager(private val context: Context) {
         args.add("-b")
         args.add("/sys:/sys")
         
-        // Bind host tmp folder directly to guest /tmp
+        // Bind host tmp folder directly to multiple guest temp paths
         args.add("-b")
         args.add("${tmpDir.absolutePath}:/tmp")
+        args.add("-b")
+        args.add("${tmpDir.absolutePath}:/var/tmp")
+        args.add("-b")
+        args.add("${tmpDir.absolutePath}:/run")
 
         args.add("-w")
         args.add("/root")
@@ -71,6 +78,7 @@ class ProotManager(private val context: Context) {
         env["TMPDIR"] = tmpDir.absolutePath
         env["TEMP"] = tmpDir.absolutePath
         env["TMP"] = tmpDir.absolutePath
+        env["PROOT_VERBOSE"] = "1"
         
         env["HOME"] = "/root"
         env["PATH"] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"

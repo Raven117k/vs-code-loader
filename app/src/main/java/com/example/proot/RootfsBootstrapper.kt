@@ -24,14 +24,13 @@ class RootfsBootstrapper(private val context: Context) {
     val status: StateFlow<String> = _status.asStateFlow()
 
     private val filesDir: File = context.filesDir
-    val prootDir = File(filesDir, "proot")
-    val prootBinary = File(prootDir, "proot")
-    val prootLoader = File(prootDir, "loader")
+    private val nativeLibDir = context.applicationInfo.nativeLibraryDir
+    val prootBinary = File(nativeLibDir, "libproot.so")
+    val prootLoader = File(nativeLibDir, "libprootloader.so")
     val rootfsDir = File(filesDir, "rootfs")
     val tmpDir = File(filesDir, "tmp")
 
     init {
-        if (!prootDir.exists()) prootDir.mkdirs()
         if (!rootfsDir.exists()) rootfsDir.mkdirs()
         if (!tmpDir.exists()) tmpDir.mkdirs()
     }
@@ -41,27 +40,20 @@ class RootfsBootstrapper(private val context: Context) {
         return completeFlag.exists() && prootBinary.exists() && prootLoader.exists() && rootfsDir.exists() && rootfsDir.list()?.isNotEmpty() == true
     }
 
+    private fun verifyBundledProotBinaries(): Boolean {
+        val available = prootBinary.exists() && prootBinary.canExecute() && prootLoader.exists() && prootLoader.canExecute()
+        if (!available) {
+            AppLogger.log(
+                "Bootstrapper",
+                "proot binaries missing from native lib dir: ${prootBinary.absolutePath}, ${prootLoader.absolutePath}"
+            )
+        }
+        return available
+    }
+
     fun getDeviceAbi(): String {
         val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"
         return if (abi.contains("x86_64")) "x86_64" else "arm64"
-    }
-
-    fun getProotUrl(): String {
-        val abi = getDeviceAbi()
-        return if (abi == "x86_64") {
-            "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-x86_64"
-        } else {
-            "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-aarch64"
-        }
-    }
-
-    fun getProotLoaderUrl(): String {
-        val abi = getDeviceAbi()
-        return if (abi == "x86_64") {
-            "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-loader-x86_64"
-        } else {
-            "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-loader-aarch64"
-        }
     }
 
     fun getDefaultRootfsUrl(distro: String): String {
@@ -87,34 +79,16 @@ class RootfsBootstrapper(private val context: Context) {
         if (completeFlag.exists()) completeFlag.delete()
         
         try {
-            // 1. Download proot binary + loader
-            if (!prootBinary.exists()) {
-                val prootUrl = getProotUrl()
-                _status.value = "Downloading proot binary..."
-                AppLogger.log("Bootstrapper", "Downloading proot from $prootUrl")
-                val prootDownloaded = downloadFile(prootUrl, prootBinary)
-                if (!prootDownloaded) {
-                    AppLogger.log("Bootstrapper", "Failed to download proot binary")
-                    return@withContext false
-                }
-                prootBinary.setExecutable(true, false)
-                AppLogger.log("Bootstrapper", "proot binary downloaded and marked executable")
+            _status.value = "Checking bundled proot binaries..."
+            if (!verifyBundledProotBinaries()) {
+                _status.value = "proot binaries missing from native lib dir — check jniLibs packaging"
+                AppLogger.log("Bootstrapper", "Bundled proot binaries are missing or not executable")
+                return@withContext false
             }
 
-            if (!prootLoader.exists()) {
-                val loaderUrl = getProotLoaderUrl()
-                _status.value = "Downloading proot loader..."
-                AppLogger.log("Bootstrapper", "Downloading loader from $loaderUrl")
-                val loaderDownloaded = downloadFile(loaderUrl, prootLoader)
-                if (!loaderDownloaded) {
-                    AppLogger.log("Bootstrapper", "Failed to download proot loader")
-                    return@withContext false
-                }
-                prootLoader.setExecutable(true, false)
-                AppLogger.log("Bootstrapper", "proot loader downloaded and marked executable")
-            }
+            AppLogger.log("Bootstrapper", "Using bundled proot binaries from $nativeLibDir")
 
-            // 2. Download Linux rootfs
+            // 1. Download Linux rootfs
             val rootfsUrl = customRootfsUrl ?: getDefaultRootfsUrl(distro)
             _status.value = "Downloading $distro rootfs (~5MB - 50MB)..."
             AppLogger.log("Bootstrapper", "Downloading rootfs from $rootfsUrl")
@@ -237,6 +211,8 @@ class RootfsBootstrapper(private val context: Context) {
 
     private fun ensureRootfsFallbackDirs() {
         File(rootfsDir, "tmp").apply { if (!exists()) mkdirs() }
+        File(rootfsDir, "var/tmp").apply { if (!exists()) mkdirs() }
+        File(rootfsDir, "run").apply { if (!exists()) mkdirs() }
         File(rootfsDir, "root").apply { if (!exists()) mkdirs() }
     }
 
