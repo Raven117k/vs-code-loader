@@ -27,7 +27,6 @@ class RootfsBootstrapper(private val context: Context) {
     private val filesDir: File = context.filesDir
     val prootDir = File(filesDir, "proot")
     val prootBinary = File(prootDir, "proot")
-    val prootLoader = File(prootDir, "loader")
     val rootfsDir = File(filesDir, "rootfs")
     val tmpDir = File(filesDir, "tmp")
 
@@ -39,7 +38,7 @@ class RootfsBootstrapper(private val context: Context) {
 
     fun isSetupComplete(): Boolean {
         val completeFlag = File(filesDir, ".setup_complete")
-        return completeFlag.exists() && prootBinary.exists() && prootLoader.exists() && rootfsDir.exists() && rootfsDir.list()?.isNotEmpty() == true
+        return completeFlag.exists() && prootBinary.exists() && rootfsDir.exists() && rootfsDir.list()?.isNotEmpty() == true
     }
 
     fun getDeviceAbi(): String {
@@ -48,13 +47,12 @@ class RootfsBootstrapper(private val context: Context) {
     }
 
     fun getProotUrl(): String {
-        // NOTE: ZhymabekRoman/proot-static only ships an arm/arm64 static binary.
-        // If you need x86_64 device support later, you'll need a separate build/source for that.
-        return "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-aarch64"
-    }
-
-    fun getProotLoaderUrl(): String {
-        return "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-loader-aarch64"
+        val abi = getDeviceAbi()
+        return if (abi == "x86_64") {
+            "https://github.com/corbinlc/proot-android/releases/download/v5.3.0/proot-x86_64"
+        } else {
+            "https://github.com/corbinlc/proot-android/releases/download/v5.3.0/proot-aarch64"
+        }
     }
 
     fun getDefaultRootfsUrl(distro: String): String {
@@ -66,12 +64,12 @@ class RootfsBootstrapper(private val context: Context) {
                 "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/aarch64/alpine-minirootfs-3.19.1-aarch64.tar.gz"
             }
         } else {
-            // Debian rootfs from Termux's own proot-distro releases (real, versioned, checksummed)
-            // NOTE: verify "v1.10.1" is still current at
-            // https://github.com/termux/proot-distro/releases before relying on this
-            val version = "v1.10.1"
-            val distroAbi = if (abi == "x86_64") "x86_64" else "aarch64"
-            "https://github.com/termux/proot-distro/releases/download/$version/debian-$distroAbi-pd-$version.tar.xz"
+            // Debian Slim minimal rootfs
+            if (abi == "x86_64") {
+                "https://github.com/debian-pi/debian-platform/releases/download/v1.0/debian-rootfs.tar.gz"
+            } else {
+                "https://github.com/debian-pi/debian-platform/releases/download/v1.0/debian-rootfs.tar.gz"
+            }
         }
     }
 
@@ -80,7 +78,7 @@ class RootfsBootstrapper(private val context: Context) {
         _progress.value = 0f
         
         try {
-            // 1. Download proot binary + loader
+            // 1. Download proot binary
             if (!prootBinary.exists()) {
                 val prootUrl = getProotUrl()
                 _status.value = "Downloading proot binary..."
@@ -90,21 +88,9 @@ class RootfsBootstrapper(private val context: Context) {
                     AppLogger.log("Bootstrapper", "Failed to download proot binary")
                     return@withContext false
                 }
+                // Mark executable
                 prootBinary.setExecutable(true, false)
                 AppLogger.log("Bootstrapper", "proot binary downloaded and marked executable")
-            }
-
-            if (!prootLoader.exists()) {
-                val loaderUrl = getProotLoaderUrl()
-                _status.value = "Downloading proot loader..."
-                AppLogger.log("Bootstrapper", "Downloading loader from $loaderUrl")
-                val loaderDownloaded = downloadFile(loaderUrl, prootLoader)
-                if (!loaderDownloaded) {
-                    AppLogger.log("Bootstrapper", "Failed to download proot loader")
-                    return@withContext false
-                }
-                prootLoader.setExecutable(true, false)
-                AppLogger.log("Bootstrapper", "proot loader downloaded and marked executable")
             }
 
             // 2. Download Linux rootfs
@@ -112,8 +98,7 @@ class RootfsBootstrapper(private val context: Context) {
             _status.value = "Downloading $distro rootfs (~5MB - 50MB)..."
             AppLogger.log("Bootstrapper", "Downloading rootfs from $rootfsUrl")
             
-            val archiveExt = if (distro == "Alpine") "tar.gz" else "tar.xz"
-            val archiveFile = File(tmpDir, "rootfs.$archiveExt")
+            val archiveFile = File(tmpDir, "rootfs.tar.gz")
             if (archiveFile.exists()) archiveFile.delete()
 
             val rootfsDownloaded = downloadFile(rootfsUrl, archiveFile)
@@ -131,7 +116,7 @@ class RootfsBootstrapper(private val context: Context) {
             }
             rootfsDir.mkdirs()
 
-            val success = extractTarball(archiveFile, rootfsDir, archiveExt)
+            val success = extractTarGz(archiveFile, rootfsDir)
             if (success) {
                 // Write a flag indicating success
                 File(filesDir, ".setup_complete").createNewFile()
@@ -191,13 +176,12 @@ class RootfsBootstrapper(private val context: Context) {
         }
     }
 
-    private fun extractTarball(archive: File, destinationDir: File, ext: String): Boolean {
+    private fun extractTarGz(archive: File, destinationDir: File): Boolean {
         try {
             AppLogger.log("Bootstrapper", "Executing system tar command to extract rootfs...")
-            val tarFlag = if (ext == "tar.xz") "-xJf" else "-xzf"
             // Android toybox tar handles symlinks and file attributes perfectly
             val process = ProcessBuilder()
-                .command("tar", tarFlag, archive.absolutePath, "-C", destinationDir.absolutePath)
+                .command("tar", "-xzf", archive.absolutePath, "-C", destinationDir.absolutePath)
                 .redirectErrorStream(true)
                 .start()
 
