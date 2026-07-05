@@ -217,16 +217,21 @@ class RootfsBootstrapper(private val context: Context) {
     }
 
     private fun normalizeRootfsPermissions() {
-        listOf(
-            File(rootfsDir, "bin/sh"),
-            File(rootfsDir, "bin/busybox"),
-            File(rootfsDir, "bin/bash"),
-            File(rootfsDir, "usr/bin/sh"),
-            File(rootfsDir, "usr/bin/bash")
-        ).forEach { file ->
-            if (file.exists()) {
-                file.setExecutable(true, false)
-                AppLogger.log("Bootstrapper", "Restored executable permission for ${file.absolutePath}")
+        AppLogger.log("Bootstrapper", "Normalizing executable permissions for rootfs files...")
+        normalizeDirectory(rootfsDir)
+    }
+
+    private fun normalizeDirectory(directory: File) {
+        directory.listFiles()?.forEach { entry ->
+            if (entry.isDirectory) {
+                normalizeDirectory(entry)
+            } else {
+                val canExecute = entry.canExecute()
+                if (canExecute) {
+                    entry.setWritable(false, false)
+                    entry.setExecutable(true, false)
+                    AppLogger.log("Bootstrapper", "Normalized exec perms for ${entry.absolutePath}")
+                }
             }
         }
     }

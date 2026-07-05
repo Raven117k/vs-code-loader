@@ -50,6 +50,21 @@ class ProotManager(private val context: Context) {
         }
     }
 
+    private fun getQemuBinary(): File? {
+        val qemuName = if (getDeviceAbi() == "x86_64") {
+            "libqemu-x86_64.so"
+        } else {
+            "libqemu-aarch64.so"
+        }
+        val qemuFile = File(nativeLibDir, qemuName)
+        return if (qemuFile.exists()) {
+            qemuFile
+        } else {
+            AppLogger.log("ProotManager", "QEMU binary not found in native libs: ${qemuFile.absolutePath}")
+            null
+        }
+    }
+
     fun buildProotCommand(guestCommand: String): List<String> {
         val args = mutableListOf<String>()
 
@@ -59,6 +74,12 @@ class ProotManager(private val context: Context) {
         args.add(prootBinary.absolutePath)
         args.add("-0") // Simulate root user privileges
         args.add("--link2symlink")
+
+        getQemuBinary()?.let { qemuFile ->
+            AppLogger.log("ProotManager", "Using QEMU binary ${qemuFile.absolutePath}")
+            args.add("-q")
+            args.add(qemuFile.absolutePath)
+        }
         
         args.add("-r")
         args.add(rootfsDir.absolutePath)
