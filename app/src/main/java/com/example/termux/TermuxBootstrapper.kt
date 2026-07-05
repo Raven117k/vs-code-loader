@@ -70,11 +70,15 @@ class TermuxBootstrapper(private val context: Context) {
                     entry = zip.nextEntry
                 }
             }
-            _progress.value = 0.6f
+            _progress.value = 0.5f
 
             _status.value = "Creating symlinks..."
             processSymlinks(env.usrDir)
-            _progress.value = 0.8f
+            _progress.value = 0.7f
+
+            _status.value = "Patching hardcoded Termux paths..."
+            patchHardcodedPrefix(env.usrDir)
+            _progress.value = 0.85f
 
             fixExecutablePermissions(env.usrDir)
 
@@ -127,6 +131,38 @@ class TermuxBootstrapper(private val context: Context) {
             }
         }
         symlinksFile.delete()
+    }
+
+    /**
+     * Termux's own shell scripts (pkg, apt wrappers, etc.) have their interpreter
+     * path hardcoded at build time to /data/data/com.termux/files/usr/... — which
+     * doesn't exist under our package name. Rewrite any such reference in text
+     * scripts to point at our actual extracted usr/ directory instead.
+     */
+    private fun patchHardcodedPrefix(usrDir: File) {
+        val oldPrefix = "/data/data/com.termux/files/usr"
+        val newPrefix = usrDir.absolutePath
+        var patchedCount = 0
+
+        usrDir.walkTopDown().forEach { file ->
+            if (!file.isFile) return@forEach
+            try {
+                val head = ByteArray(2)
+                val bytesRead = file.inputStream().use { it.read(head) }
+                // Only touch text scripts starting with a shebang line ("#!"),
+                // never binary ELF files (which start with 0x7f 'E' 'L' 'F').
+                if (bytesRead == 2 && head[0] == '#'.code.toByte() && head[1] == '!'.code.toByte()) {
+                    val text = file.readText()
+                    if (text.contains(oldPrefix)) {
+                        file.writeText(text.replace(oldPrefix, newPrefix))
+                        patchedCount++
+                    }
+                }
+            } catch (_: Exception) {
+                // Skip unreadable/binary files silently
+            }
+        }
+        AppLogger.log("TermuxBootstrapper", "Patched hardcoded prefix in $patchedCount script(s)")
     }
 
     private fun fixExecutablePermissions(directory: File) {
