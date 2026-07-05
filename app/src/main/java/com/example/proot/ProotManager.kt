@@ -8,22 +8,22 @@ class ProotManager(private val context: Context) {
     val prootBinary = File(File(filesDir, "proot"), "proot")
     val prootLoader = File(File(filesDir, "proot"), "loader")
     val rootfsDir = File(filesDir, "rootfs")
+    
+    // Ensure both the guest rootfs /tmp directory target AND our host cache space exist completely
     val tmpDir = File(filesDir, "tmp").apply { if (!exists()) mkdirs() }
+    private val guestTmpDir = File(rootfsDir, "tmp").apply { if (!exists()) mkdirs() }
 
     fun buildProotCommand(guestCommand: String): List<String> {
         val args = mutableListOf<String>()
 
         args.add(prootBinary.absolutePath)
         args.add("-0") // Simulate root user privileges
-        
-        // CRITICAL: Force PRoot to use link2symlink extension.
-        // This stops Android from throwing hard-link permission errors on the emulator filesystem!
         args.add("--link2symlink")
         
         args.add("-r")
         args.add(rootfsDir.absolutePath)
 
-        // Fix the bind syntax to separate system bindings accurately
+        // Standard system directory bindings using strict individual parameters
         args.add("-b")
         args.add("/dev:/dev")
         args.add("-b")
@@ -31,7 +31,7 @@ class ProotManager(private val context: Context) {
         args.add("-b")
         args.add("/sys:/sys")
         
-        // Bind the host app data directory to clear out the "can't canonicalize /tmp/" warning
+        // CRITICAL BIND: Explicitly mount the physical host sandbox tmp folder to the guest's virtualized /tmp
         args.add("-b")
         args.add("${tmpDir.absolutePath}:/tmp")
 
@@ -48,19 +48,21 @@ class ProotManager(private val context: Context) {
     fun getProotEnvironment(): Map<String, String> {
         val env = mutableMapOf<String, String>()
         
-        // Point PRoot explicitly to the companion executable loader stub we extracted
+        // Pass the standalone companion loader binary through the correct environment variable
         env["PROOT_LOADER"] = prootLoader.absolutePath
         
-        // Keep these completely empty so the dynamic linker doesn't throw e_type mismatch errors
+        // Keep these completely empty since Termux uses static execution links now
         env["LD_PRELOAD"] = ""
         env["LD_LIBRARY_PATH"] = ""
         
-        // Match the directory bindings exactly
-        env["PROOT_TMPDIR"] = "/tmp"
+        // CRITICAL PATH FIX: Force PRoot to use the absolute host-side directory path 
+        // for its internal initialization probes BEFORE it applies the rootfs virtualizations!
+        env["PROOT_TMPDIR"] = tmpDir.absolutePath
+        
         env["HOME"] = "/root"
         env["PATH"] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
         
-        // Absolutely force user-space emulation to skip the ptrace kernel trap entirely
+        // Completely skip kernel-level system filters to let the binary run natively in user space
         env["PROOT_NO_SECCOMP"] = "1"
         
         return env
