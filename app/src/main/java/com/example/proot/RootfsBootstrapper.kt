@@ -140,6 +140,8 @@ class RootfsBootstrapper(private val context: Context) {
 
             val success = extractTarball(archiveFile, rootfsDir, archiveExt)
             if (success) {
+                ensureRootfsFallbackDirs()
+                restoreRootfsExecutables()
                 File(filesDir, ".setup_complete").createNewFile()
                 AppLogger.log("Bootstrapper", "Rootfs setup complete!")
                 _status.value = "Setup completed successfully!"
@@ -230,6 +232,24 @@ class RootfsBootstrapper(private val context: Context) {
         } catch (e: Exception) {
             AppLogger.log("Bootstrapper", "Tar extraction exception: ${e.message}")
             return false
+        }
+    }
+
+    private fun ensureRootfsFallbackDirs() {
+        File(rootfsDir, "tmp").apply { if (!exists()) mkdirs() }
+        File(rootfsDir, "root").apply { if (!exists()) mkdirs() }
+    }
+
+    private fun restoreRootfsExecutables() {
+        listOf(
+            File(rootfsDir, "bin/sh"),
+            File(rootfsDir, "bin/busybox"),
+            File(rootfsDir, "bin/bash")
+        ).forEach { file ->
+            if (file.exists()) {
+                file.setExecutable(true, false)
+                AppLogger.log("Bootstrapper", "Restored executable permission for ${file.absolutePath}")
+            }
         }
     }
 }

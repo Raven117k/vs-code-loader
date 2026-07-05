@@ -14,11 +14,13 @@ class ProotManager(private val context: Context) {
 
     // 🛠️ FIX: Force-create the actual structural folders INSIDE the extracted rootfs
     fun ensureRootfsLayout() {
-        if (rootfsDir.exists()) {
-            File(rootfsDir, "tmp").apply { if (!exists()) mkdirs() }
-            File(rootfsDir, "root").apply { if (!exists()) mkdirs() }
-            File(rootfsDir, "bin").apply { if (!exists()) mkdirs() }
-        }
+        if (!rootfsDir.exists()) rootfsDir.mkdirs()
+        File(rootfsDir, "tmp").apply { if (!exists()) mkdirs() }
+        File(rootfsDir, "root").apply { if (!exists()) mkdirs() }
+        File(rootfsDir, "dev").apply { if (!exists()) mkdirs() }
+        File(rootfsDir, "proc").apply { if (!exists()) mkdirs() }
+        File(rootfsDir, "sys").apply { if (!exists()) mkdirs() }
+        File(rootfsDir, "bin").apply { if (!exists()) mkdirs() }
     }
 
     fun buildProotCommand(guestCommand: String): List<String> {
@@ -63,8 +65,12 @@ class ProotManager(private val context: Context) {
         env["LD_PRELOAD"] = ""
         env["LD_LIBRARY_PATH"] = ""
         
-        // Pass the host-side temp directory to unblock internal probes
+        // Pass the host-side temp directory to unblock internal probes and guest TMP handling
         env["PROOT_TMPDIR"] = tmpDir.absolutePath
+        env["PROOT_TMP_DIR"] = tmpDir.absolutePath
+        env["TMPDIR"] = tmpDir.absolutePath
+        env["TEMP"] = tmpDir.absolutePath
+        env["TMP"] = tmpDir.absolutePath
         
         env["HOME"] = "/root"
         env["PATH"] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
