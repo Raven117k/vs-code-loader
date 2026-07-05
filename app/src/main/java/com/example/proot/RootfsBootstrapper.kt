@@ -177,12 +177,6 @@ class RootfsBootstrapper(private val context: Context) {
         try {
             AppLogger.log("Bootstrapper", "Executing system tar command to extract rootfs...")
             val tarFlag = if (ext == "tar.xz") "-xJf" else "-xzf"
-            val tempExtractDir = File(destinationDir.parentFile, "${destinationDir.name}_extract")
-            if (tempExtractDir.exists()) {
-                tempExtractDir.deleteRecursively()
-            }
-            tempExtractDir.mkdirs()
-
             val process = ProcessBuilder()
                 .command(
                     "tar",
@@ -190,7 +184,7 @@ class RootfsBootstrapper(private val context: Context) {
                     tarFlag,
                     archive.absolutePath,
                     "-C",
-                    tempExtractDir.absolutePath
+                    destinationDir.absolutePath
                 )
                 .redirectErrorStream(true)
                 .start()
@@ -204,18 +198,6 @@ class RootfsBootstrapper(private val context: Context) {
             val exitCode = process.waitFor()
             AppLogger.log("Bootstrapper", "Tar finished with exit code: $exitCode")
 
-            if (exitCode == 0) {
-                val extractedEntries = tempExtractDir.listFiles() ?: emptyArray()
-                val sourceRoot = if (extractedEntries.size == 1 && extractedEntries[0].isDirectory()) {
-                    extractedEntries[0]
-                } else {
-                    tempExtractDir
-                }
-
-                copyDirectoryContents(sourceRoot, destinationDir)
-                tempExtractDir.deleteRecursively()
-            }
-
             if (archive.exists()) {
                 archive.delete()
             }
@@ -224,22 +206,6 @@ class RootfsBootstrapper(private val context: Context) {
         } catch (e: Exception) {
             AppLogger.log("Bootstrapper", "Tar extraction exception: ${e.message}")
             return false
-        }
-    }
-
-    private fun copyDirectoryContents(sourceDir: File, destinationDir: File) {
-        sourceDir.listFiles()?.forEach { entry ->
-            val target = File(destinationDir, entry.name)
-            if (entry.isDirectory) {
-                target.mkdirs()
-                copyDirectoryContents(entry, target)
-            } else {
-                target.parentFile?.mkdirs()
-                entry.copyTo(target, overwrite = true)
-                if (entry.canExecute()) {
-                    target.setExecutable(true, false)
-                }
-            }
         }
     }
 
