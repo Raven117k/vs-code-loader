@@ -19,8 +19,11 @@ class CommandRunner(context: Context) {
         
         try {
             val builder = ProcessBuilder(fullCommand)
-            // Inject full proot environment, including PROOT_LOADER
-            builder.environment().putAll(prootManager.getProotEnvironment())
+            // Inject cleaner environment
+            builder.environment().apply {
+                put("LD_PRELOAD", "")
+                put("LD_LIBRARY_PATH", "")
+            }
             builder.redirectErrorStream(true)
             
             val process = builder.start()
