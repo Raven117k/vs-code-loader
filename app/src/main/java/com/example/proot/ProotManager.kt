@@ -1,6 +1,7 @@
 package com.example.proot
 
 import android.content.Context
+import com.example.util.AppLogger
 import java.io.File
 
 class ProotManager(private val context: Context) {
@@ -24,6 +25,29 @@ class ProotManager(private val context: Context) {
         File(rootfsDir, "proc").apply { if (!exists()) mkdirs() }
         File(rootfsDir, "sys").apply { if (!exists()) mkdirs() }
         File(rootfsDir, "bin").apply { if (!exists()) mkdirs() }
+    }
+
+    private fun resolveGuestShell(): Pair<String, List<String>> {
+        val candidates = listOf(
+            "/bin/sh",
+            "/bin/ash",
+            "/bin/bash",
+            "/bin/busybox",
+            "/usr/bin/sh",
+            "/usr/bin/ash",
+            "/usr/bin/bash"
+        )
+
+        val existingShell = candidates.firstOrNull { candidate ->
+            val guestPath = candidate.removePrefix("/")
+            File(rootfsDir, guestPath).exists()
+        } ?: "/bin/sh"
+
+        return when (existingShell) {
+            "/bin/busybox" -> existingShell to listOf("sh", "-c")
+            "/bin/bash", "/bin/ash", "/usr/bin/bash", "/usr/bin/ash" -> existingShell to listOf("-c")
+            else -> existingShell to listOf("-c")
+        }
     }
 
     fun buildProotCommand(guestCommand: String): List<String> {
@@ -56,9 +80,11 @@ class ProotManager(private val context: Context) {
 
         args.add("-w")
         args.add("/root")
-        
-        args.add("/bin/sh")
-        args.add("-c")
+
+        val (shellPath, shellArgs) = resolveGuestShell()
+        AppLogger.log("ProotManager", "Using guest shell $shellPath")
+        args.add(shellPath)
+        shellArgs.forEach { args.add(it) }
         args.add(guestCommand)
 
         return args
