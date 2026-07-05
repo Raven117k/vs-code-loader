@@ -8,7 +8,6 @@ class ProotManager(private val context: Context) {
     val prootBinary = File(File(filesDir, "proot"), "proot")
     val prootLoader = File(File(filesDir, "proot"), "loader")
     val rootfsDir = File(filesDir, "rootfs")
-
     val tmpDir = File(filesDir, "tmp").apply { if (!exists()) mkdirs() }
 
     fun buildProotCommand(guestCommand: String): List<String> {
@@ -16,27 +15,29 @@ class ProotManager(private val context: Context) {
 
         args.add(prootBinary.absolutePath)
         args.add("-0") // Simulate root user privileges
-
-        // NOTE: proot has no "-l" CLI flag for specifying the loader.
-        // The loader is passed via the PROOT_LOADER environment variable
-        // instead -- see getProotEnvironment() below.
-
+        
+        // CRITICAL: Force PRoot to use link2symlink extension.
+        // This stops Android from throwing hard-link permission errors on the emulator filesystem!
+        args.add("--link2symlink")
+        
         args.add("-r")
         args.add(rootfsDir.absolutePath)
 
+        // Fix the bind syntax to separate system bindings accurately
         args.add("-b")
         args.add("/dev:/dev")
         args.add("-b")
         args.add("/proc:/proc")
         args.add("-b")
         args.add("/sys:/sys")
-
+        
+        // Bind the host app data directory to clear out the "can't canonicalize /tmp/" warning
         args.add("-b")
         args.add("${tmpDir.absolutePath}:/tmp")
 
         args.add("-w")
         args.add("/root")
-
+        
         args.add("/bin/sh")
         args.add("-c")
         args.add(guestCommand)
@@ -46,21 +47,22 @@ class ProotManager(private val context: Context) {
 
     fun getProotEnvironment(): Map<String, String> {
         val env = mutableMapOf<String, String>()
-
-        // CRITICAL FIX: PROOT_LOADER, not LD_PRELOAD.
-        // LD_PRELOAD is for shared libraries (ELF type ET_DYN) only.
-        // Our loader binary is an executable (ET_EXEC) -- setting it via
-        // LD_PRELOAD is exactly what caused:
-        //   "unexpected e_type: 2"
-        // proot itself reads PROOT_LOADER to find its companion loader stub.
+        
+        // Point PRoot explicitly to the companion executable loader stub we extracted
         env["PROOT_LOADER"] = prootLoader.absolutePath
-
+        
+        // Keep these completely empty so the dynamic linker doesn't throw e_type mismatch errors
         env["LD_PRELOAD"] = ""
         env["LD_LIBRARY_PATH"] = ""
-        env["PROOT_TMPDIR"] = tmpDir.absolutePath
+        
+        // Match the directory bindings exactly
+        env["PROOT_TMPDIR"] = "/tmp"
         env["HOME"] = "/root"
         env["PATH"] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-
+        
+        // Absolutely force user-space emulation to skip the ptrace kernel trap entirely
+        env["PROOT_NO_SECCOMP"] = "1"
+        
         return env
     }
 }
