@@ -2,6 +2,7 @@ package com.example.termux
 
 import android.content.Context
 import android.os.Build
+import android.system.Os
 import com.example.util.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -69,7 +70,12 @@ class TermuxBootstrapper(private val context: Context) {
                     entry = zip.nextEntry
                 }
             }
-            _progress.value = 0.7f
+            _progress.value = 0.6f
+
+            _status.value = "Creating symlinks..."
+            processSymlinks(env.usrDir)
+            _progress.value = 0.8f
+
             fixExecutablePermissions(env.usrDir)
 
             _status.value = "Verifying Termux binaries..."
@@ -89,6 +95,38 @@ class TermuxBootstrapper(private val context: Context) {
             _status.value = "Error: ${e.message}"
             false
         }
+    }
+
+    private fun processSymlinks(usrDir: File) {
+        val symlinksFile = File(usrDir, "SYMLINKS.txt")
+        if (!symlinksFile.exists()) {
+            AppLogger.log("TermuxBootstrapper", "No SYMLINKS.txt found — skipping symlink step")
+            return
+        }
+        symlinksFile.forEachLine { rawLine ->
+            val line = rawLine.trim()
+            if (line.isEmpty()) return@forEachLine
+
+            val parts = line.split("←").takeIf { it.size == 2 }
+                ?: line.split("<-").takeIf { it.size == 2 }
+
+            if (parts == null) {
+                AppLogger.log("TermuxBootstrapper", "Malformed symlink line, skipping: $line")
+                return@forEachLine
+            }
+
+            val (target, linkRelative) = parts
+            val linkFile = File(usrDir, linkRelative)
+            linkFile.parentFile?.mkdirs()
+            if (linkFile.exists()) linkFile.delete()
+
+            try {
+                Os.symlink(target, linkFile.absolutePath)
+            } catch (e: Exception) {
+                AppLogger.log("TermuxBootstrapper", "Symlink failed ($target -> ${linkFile.absolutePath}): ${e.message}")
+            }
+        }
+        symlinksFile.delete()
     }
 
     private fun fixExecutablePermissions(directory: File) {
