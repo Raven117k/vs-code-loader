@@ -68,7 +68,7 @@ class RootfsBootstrapper(private val context: Context) {
         val abi = getDeviceAbi()
         return if (distro == "Alpine") {
             if (abi == "x86_64") {
-                "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/alpine-minirootfs-3.19.1-x86_64.tar.gz"
+                "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/aarch64/alpine-minirootfs-3.19.1-aarch64.tar.gz"
             } else {
                 "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/aarch64/alpine-minirootfs-3.19.1-aarch64.tar.gz"
             }
