@@ -22,7 +22,7 @@ object AppLogger {
         val formattedLine = "[$timestamp] [$tag] $message"
         android.util.Log.d(tag, message)
         _logs.update { current ->
-            (current + formattedLine).takeLast(1000) // Keep last 1000 lines
+            current + formattedLine
         }
         _lastLogLine.value = message
     }
