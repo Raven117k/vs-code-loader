@@ -8,7 +8,9 @@ class ProotManager(private val context: Context) {
     val prootBinary = File(File(filesDir, "proot"), "proot")
     val prootLoader = File(File(filesDir, "proot"), "loader")
     val rootfsDir = File(filesDir, "rootfs")
-    val tmpDir = File(filesDir, "tmp")
+    
+    // Ensure the tmp folder exists inside your app sandbox with absolute write access
+    val tmpDir = File(filesDir, "tmp").apply { if (!exists()) mkdirs() }
 
     fun buildProotCommand(guestCommand: String): List<String> {
         val args = mutableListOf<String>()
@@ -27,9 +29,8 @@ class ProotManager(private val context: Context) {
         args.add("-b")
         args.add("/system:/system")
 
-        args.add("-b")
-        args.add("/data:/data")
-
+        // ❌ REMOVED: Binding all of /data causes a recursive crash because your app's files are inside /data.
+        // Instead, we bind only what is strictly necessary or safe.
         args.add("-b")
         args.add("/dev:/dev")
 
@@ -63,8 +64,14 @@ class ProotManager(private val context: Context) {
         return mapOf(
             "LD_PRELOAD" to "",
             "LD_LIBRARY_PATH" to "",
-            "PROOT_LOADER" to prootLoader.absolutePath,
+            // Fixed typo: added both common variants to be absolutely safe
             "PROOT_TMPDIR" to tmpDir.absolutePath,
+            "PROOT_TMP_DIR" to tmpDir.absolutePath,
+            // Forces PRoot to use the companion loader binary instead of ptrace()
+            "PROOT_LOADER" to prootLoader.absolutePath,
+            "PROOT_UNBUNDLE_LOADER" to prootLoader.absolutePath,
+            // Forces PRoot to bypass the SE Linux Seccomp filter blocks on Android
+            "PROOT_NO_SECCOMP" to "1",
             "HOME" to "/root",
             "PATH" to "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
         )
