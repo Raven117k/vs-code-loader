@@ -12,7 +12,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.example.MainActivity
 import com.example.WebViewActivity
-import com.example.proot.CommandRunner
+import com.example.termux.TermuxCommandRunner
 import com.example.util.AppLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,7 +27,7 @@ class ServerForegroundService : Service() {
 
     private val serviceJob = SupervisorJob()
     private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
-    private lateinit var commandRunner: CommandRunner
+    private lateinit var commandRunner: TermuxCommandRunner
 
     companion object {
         const val CHANNEL_ID = "vs_code_server_channel"
@@ -45,7 +45,7 @@ class ServerForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        commandRunner = CommandRunner(applicationContext)
+        commandRunner = TermuxCommandRunner(applicationContext)
         createNotificationChannel()
     }
 

@@ -94,8 +94,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.install.PackageInstaller
-import com.example.proot.RootfsBootstrapper
 import com.example.service.ServerForegroundService
+import com.example.termux.TermuxBootstrapper
 import com.example.ui.theme.MyApplicationTheme
 import com.example.util.AppLogger
 import com.example.util.PermissionHelper
@@ -103,14 +103,14 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
-    private lateinit var bootstrapper: RootfsBootstrapper
+    private lateinit var bootstrapper: TermuxBootstrapper
     private lateinit var installer: PackageInstaller
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        bootstrapper = RootfsBootstrapper(applicationContext)
+        bootstrapper = TermuxBootstrapper(applicationContext)
         installer = PackageInstaller(applicationContext)
 
         setContent {
@@ -157,7 +157,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainControlPanel(
     modifier: Modifier = Modifier,
-    bootstrapper: RootfsBootstrapper,
+    bootstrapper: TermuxBootstrapper,
     installer: PackageInstaller,
     onLaunchWebView: (Boolean) -> Unit,
     onStartServer: () -> Unit,
@@ -378,11 +378,11 @@ fun MainControlPanel(
                 }
             }
 
-            // Step 1: Bootstrap Rootfs Card
+            // Step 1: Bootstrap Termux Environment
             item {
                 StepCard(
-                    title = "1. Bootstrap Environment",
-                    description = "Download and extract the lightweight rootfs jail of $selectedDistro and the static proot binary.",
+                    title = "1. Bootstrap Termux Environment",
+                    description = "Extract the bundled Termux native bootstrap assets and prepare the runtime environment.",
                     icon = Icons.Default.Download,
                     isActive = hasPermissions,
                     isFinished = setupFinished,

@@ -1,7 +1,8 @@
 package com.example.install
 
 import android.content.Context
-import com.example.proot.CommandRunner
+import com.example.termux.TermuxCommandRunner
+import com.example.termux.TermuxEnvironment
 import com.example.util.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,7 +12,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 class PackageInstaller(private val context: Context) {
-    private val commandRunner = CommandRunner(context)
+    private val termuxEnv = TermuxEnvironment(context)
+    private val commandRunner = TermuxCommandRunner(context)
 
     private val _status = MutableStateFlow("")
     val status: StateFlow<String> = _status.asStateFlow()
@@ -23,10 +25,10 @@ class PackageInstaller(private val context: Context) {
     val isInstalling: StateFlow<Boolean> = _isInstalling.asStateFlow()
 
     fun isInstalled(): Boolean {
-        // Check if code-server binary or config exists inside the rootfs
-        val codeServerBin = File(context.filesDir, "rootfs/usr/local/bin/code-server")
-        val altBin = File(context.filesDir, "rootfs/usr/bin/code-server")
-        val npmCS = File(context.filesDir, "rootfs/usr/local/lib/node_modules/code-server")
+        // Check whether code-server exists inside the Termux environment
+        val codeServerBin = File(termuxEnv.usrDir, "local/bin/code-server")
+        val altBin = File(termuxEnv.usrDir, "bin/code-server")
+        val npmCS = File(termuxEnv.usrDir, "local/lib/node_modules/code-server")
         return codeServerBin.exists() || altBin.exists() || npmCS.exists()
     }
 
@@ -40,11 +42,16 @@ class PackageInstaller(private val context: Context) {
             _status.value = "Installing system dependencies (git, curl, ca-certificates)..."
             _progress.value = 0.15f
             
-            val baseInstallCmd = if (distro == "Alpine") {
-                "apk update && apk add --no-cache git curl ca-certificates bash"
-            } else {
-                "apt update && apt install -y git curl ca-certificates"
-            }
+            val baseInstallCmd = """
+                if command -v pkg >/dev/null 2>&1; then
+                    pkg install -y git curl ca-certificates bash
+                elif command -v apt >/dev/null 2>&1; then
+                    apt update && apt install -y git curl ca-certificates bash
+                else
+                    echo "No supported package manager found"
+                    exit 1
+                fi
+            """.trimIndent()
 
             val baseExitCode = commandRunner.runCommand(baseInstallCmd) { line ->
                 _status.value = "Deps: $line"
@@ -78,20 +85,25 @@ class PackageInstaller(private val context: Context) {
                     VERSION="4.92.2"
                     TARBALL="code-server-${'$'}VERSION-linux-${'$'}ARCH_NAME.tar.gz"
                     URL="https://github.com/coder/code-server/releases/download/v${'$'}VERSION/${'$'}TARBALL"
+                    PREFIX="${'$'}PREFIX"
+                    TMPDIR="${'$'}TMPDIR"
+                    LIB_DIR="${'$'}PREFIX/local/lib/code-server"
+                    BIN_DIR="${'$'}PREFIX/local/bin"
                     
                     echo "Selected URL: ${'$'}URL"
-                    curl -fL -o /tmp/code-server.tar.gz "${'$'}URL"
+                    mkdir -p "${'$'}TMPDIR"
+                    curl -fL -o "${'$'}TMPDIR/code-server.tar.gz" "${'$'}URL"
                     
-                    echo "Extracting code-server to /usr/local/lib..."
-                    mkdir -p /usr/local/lib/code-server
-                    tar -xzf /tmp/code-server.tar.gz -C /usr/local/lib/code-server --strip-components=1
+                    echo "Extracting code-server to ${'$'}LIB_DIR..."
+                    mkdir -p "${'$'}LIB_DIR"
+                    tar -xzf "${'$'}TMPDIR/code-server.tar.gz" -C "${'$'}LIB_DIR" --strip-components=1
                     
-                    echo "Creating symlink to /usr/local/bin..."
-                    mkdir -p /usr/local/bin
-                    ln -sf /usr/local/lib/code-server/bin/code-server /usr/local/bin/code-server
+                    echo "Creating symlink to ${'$'}BIN_DIR..."
+                    mkdir -p "${'$'}BIN_DIR"
+                    ln -sf "${'$'}LIB_DIR/bin/code-server" "${'$'}BIN_DIR/code-server"
                     
                     echo "Cleanup temp files..."
-                    rm -f /tmp/code-server.tar.gz
+                    rm -f "${'$'}TMPDIR/code-server.tar.gz"
                     
                     echo "Fast Install completed!"
                 """.trimIndent()
@@ -124,11 +136,16 @@ class PackageInstaller(private val context: Context) {
             _status.value = "NPM Method: Installing Node.js & NPM..."
             _progress.value = 0.5f
 
-            val nodeInstallCmd = if (distro == "Alpine") {
-                "apk add --no-cache nodejs npm"
-            } else {
-                "apt install -y nodejs npm"
-            }
+            val nodeInstallCmd = """
+                if command -v pkg >/dev/null 2>&1; then
+                    pkg install -y nodejs npm
+                elif command -v apt >/dev/null 2>&1; then
+                    apt install -y nodejs npm
+                else
+                    echo "No supported package manager found"
+                    exit 1
+                fi
+            """.trimIndent()
 
             val nodeExit = commandRunner.runCommand(nodeInstallCmd) { line ->
                 _status.value = "Node: $line"
