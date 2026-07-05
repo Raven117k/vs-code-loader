@@ -13,38 +13,45 @@ class ProotManager(private val context: Context) {
     fun buildProotCommand(guestCommand: String): List<String> {
         val args = mutableListOf<String>()
 
-        // Host path to proot
+        // Host path to proot binary
         args.add(prootBinary.absolutePath)
 
         // Core proot options
-        args.add("-0") // Simulate root user
-        args.add("--bind=/system:/system")
-        args.add("--bind=/data:/data")
-
+        args.add("-0") // Simulate root user privileges
+        
         // Root directory definition
         args.add("-r")
         args.add(rootfsDir.absolutePath)
 
-        // Standard virtual filesystems bind mounts
+        // Standard system directories bind mounts using strict space separation
         args.add("-b")
-        args.add("/dev")
-        args.add("-b")
-        args.add("/proc")
-        args.add("-b")
-        args.add("/sys")
+        args.add("/system:/system")
 
-        // Bind mount tmp folder
+        args.add("-b")
+        args.add("/data:/data")
+
+        args.add("-b")
+        args.add("/dev:/dev")
+
+        args.add("-b")
+        args.add("/proc:/proc")
+
+        args.add("-b")
+        args.add("/sys:/sys")
+
+        // Bind mount host tmp folder to guest /tmp
         args.add("-b")
         args.add("${tmpDir.absolutePath}:/tmp")
 
-        // Keep the guest isolated from Android-specific paths that trigger weird proot behavior
-        args.add("-b=/sdcard:/sdcard")
+        // Keep the guest isolated from Android-specific paths safely
+        args.add("-b")
+        args.add("/sdcard:/sdcard")
 
         // Set working directory inside guest
         args.add("-w")
         args.add("/root")
 
-        // Environment settings
+        // Environment execution inside the guest shell
         args.add("/bin/sh")
         args.add("-c")
         args.add(guestCommand)
@@ -53,12 +60,10 @@ class ProotManager(private val context: Context) {
     }
 
     fun getProotEnvironment(): Map<String, String> {
-        // Clear host's LD_PRELOAD and library paths to prevent clash inside guest,
-        // and point proot at its companion loader binary (required for the
-        // ZhymabekRoman/proot-static build -- proot cannot execve() correctly without this).
         return mapOf(
             "LD_PRELOAD" to "",
             "LD_LIBRARY_PATH" to "",
+            "PROOT_LOADER" to prootLoader.absolutePath,
             "PROOT_TMPDIR" to tmpDir.absolutePath,
             "HOME" to "/root",
             "PATH" to "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
