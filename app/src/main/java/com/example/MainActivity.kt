@@ -456,6 +456,15 @@ fun MainControlPanel(
                 )
             }
 
+            // Separate terminal access card
+            if (setupFinished) {
+                item {
+                    TerminalAccessCard(
+                        onOpenTerminal = onOpenTerminal
+                    )
+                }
+            }
+
             // Active logs header
             if (lastLogLine.isNotBlank()) {
                 item {
@@ -976,6 +985,58 @@ fun ServerStateCard(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun TerminalAccessCard(onOpenTerminal: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF2B2930)),
+        border = BorderStroke(1.dp, Color(0x4D49454F))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Terminal,
+                        contentDescription = null,
+                        tint = Color(0xFFD0BCFF),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Direct Termux Access",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Open a separate terminal page to run commands directly inside the Termux environment.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+            }
+            Button(
+                onClick = onOpenTerminal,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFD0BCFF),
+                    contentColor = Color(0xFF381E72)
+                ),
+                shape = RoundedCornerShape(24.dp)
+            ) {
+                Text("Open Terminal", fontWeight = FontWeight.Bold)
             }
         }
     }
