@@ -17,8 +17,11 @@ class ProotManager(private val context: Context) {
         args.add(prootBinary.absolutePath)
 
         // Core proot options
-        args.add("--link2symlink")
         args.add("-0") // Simulate root user
+        args.add("--bind")
+        args.add("/system:/system")
+        args.add("--bind")
+        args.add("/data:/data")
 
         // Root directory definition
         args.add("-r")
@@ -36,19 +39,15 @@ class ProotManager(private val context: Context) {
         args.add("-b")
         args.add("${tmpDir.absolutePath}:/tmp")
 
+        // Keep the guest isolated from Android-specific paths that trigger weird proot behavior
+        args.add("-b")
+        args.add("/sdcard:/sdcard")
+
         // Set working directory inside guest
         args.add("-w")
         args.add("/root")
 
         // Environment settings
-        args.add("/usr/bin/env")
-        args.add("HOME=/root")
-        args.add("PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
-        args.add("TERM=xterm-256color")
-        args.add("PROOT_TMPDIR=/tmp")
-        args.add("LD_PRELOAD=") // Clean Android preload variables to prevent guest linkage crashes
-
-        // Execute guest command inside sh shell
         args.add("/bin/sh")
         args.add("-c")
         args.add(guestCommand)
@@ -64,7 +63,8 @@ class ProotManager(private val context: Context) {
             "LD_PRELOAD" to "",
             "LD_LIBRARY_PATH" to "",
             "PROOT_TMPDIR" to tmpDir.absolutePath,
-            "PROOT_LOADER" to prootLoader.absolutePath
+            "HOME" to "/root",
+            "PATH" to "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
         )
     }
 }

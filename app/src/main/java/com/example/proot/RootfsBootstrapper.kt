@@ -44,25 +44,15 @@ class RootfsBootstrapper(private val context: Context) {
 
     fun getDeviceAbi(): String {
         val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"
-        return when {
-            abi.contains("x86_64") -> "x86_64"
-            abi.contains("arm64") || abi.contains("aarch64") -> "aarch64"
-            else -> "arm64"
-        }
-    }
-
-    fun getProotArchSuffix(): String {
-        return if (getDeviceAbi() == "x86_64") "x86_64" else "aarch64"
+        return if (abi.contains("x86_64")) "x86_64" else "arm64"
     }
 
     fun getProotUrl(): String {
-        val arch = getProotArchSuffix()
-        return "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-$arch"
+        return "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-aarch64"
     }
 
     fun getProotLoaderUrl(): String {
-        val arch = getProotArchSuffix()
-        return "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-loader-$arch"
+        return "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-loader-aarch64"
     }
 
     fun getDefaultRootfsUrl(distro: String): String {
