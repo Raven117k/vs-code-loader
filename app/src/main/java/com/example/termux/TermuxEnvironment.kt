@@ -28,16 +28,16 @@ class TermuxEnvironment(private val context: Context) {
     }
 
     fun resolveBinary(name: String): File {
-        val distroCandidate = File(binDir, name)
-        val localCandidate = File(localBinDir, name)
-        val nativeCandidate = File(nativeLibDir, "libtermux$name.so")
+        val candidates = listOf(
+            File(binDir, name),
+            File(localBinDir, name),
+            File(usrDir, "bin/$name"),
+            File(usrDir, "local/bin/$name"),
+            File(usrDir, "usr/bin/$name"),
+            File(usrDir, "usr/local/bin/$name")
+        )
 
-        return when {
-            distroCandidate.exists() -> distroCandidate
-            localCandidate.exists() -> localCandidate
-            nativeCandidate.exists() -> nativeCandidate
-            else -> File(binDir, name)
-        }
+        return candidates.firstOrNull { it.exists() } ?: File(binDir, name)
     }
 
     fun isReady(): Boolean {
@@ -49,8 +49,17 @@ class TermuxEnvironment(private val context: Context) {
     fun getEnvironment(): Map<String, String> = mapOf(
         "HOME" to homeDir.absolutePath,
         "PREFIX" to usrDir.absolutePath,
-        "PATH" to listOf(localBinDir.absolutePath, binDir.absolutePath, nativeLibDir).joinToString(":"),
-        "LD_LIBRARY_PATH" to File(usrDir, "lib").absolutePath,
+        "PATH" to listOf(
+            localBinDir.absolutePath,
+            binDir.absolutePath,
+            File(usrDir, "usr/local/bin").absolutePath,
+            File(usrDir, "usr/bin").absolutePath,
+            nativeLibDir
+        ).joinToString(":"),
+        "LD_LIBRARY_PATH" to listOf(
+            File(usrDir, "lib").absolutePath,
+            File(usrDir, "usr/lib").absolutePath
+        ).joinToString(":"),
         "TMPDIR" to tmpDir.absolutePath
     )
 }

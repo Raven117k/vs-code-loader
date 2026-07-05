@@ -1,6 +1,7 @@
 package com.example.termux
 
 import android.content.Context
+import android.os.Build
 import com.example.util.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,7 +13,6 @@ import java.util.zip.ZipInputStream
 
 class TermuxBootstrapper(private val context: Context) {
     private val env = TermuxEnvironment(context)
-    private val nativeLibDir = context.applicationInfo.nativeLibraryDir
 
     private val _progress = MutableStateFlow(0f)
     val progress: StateFlow<Float> = _progress.asStateFlow()
@@ -24,13 +24,15 @@ class TermuxBootstrapper(private val context: Context) {
         return flag.exists() && env.isReady()
     }
 
-    private fun verifyBootstrapPayload(): File? {
-        val bootstrapZip = File(nativeLibDir, "libtermuxbootstrap.so")
-        if (!bootstrapZip.exists()) {
-            AppLogger.log("TermuxBootstrapper", "libtermuxbootstrap.so missing from native lib dir: ${bootstrapZip.absolutePath}")
-            return null
+    private fun getBootstrapPayload(): File {
+        val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"
+        val abiFolder = when {
+            abi.contains("x86_64") -> "x86_64"
+            abi.contains("arm64") || abi.contains("aarch64") -> "arm64-v8a"
+            else -> "arm64-v8a"
         }
-        return bootstrapZip
+        val candidate = File(context.filesDir.parentFile, "app/src/main/jniLibs/$abiFolder/libtermuxbootstrap.so")
+        return if (candidate.exists()) candidate else File(context.applicationInfo.nativeLibraryDir, "libtermuxbootstrap.so")
     }
 
     suspend fun bootstrap(distro: String = "Alpine", customRootfsUrl: String? = null): Boolean = withContext(Dispatchers.IO) {
@@ -44,15 +46,16 @@ class TermuxBootstrapper(private val context: Context) {
             env.ensureLayout()
 
             _status.value = "Checking bundled Termux payload..."
-            val bootstrapZip = verifyBootstrapPayload()
-            if (bootstrapZip == null) {
-                _status.value = "Setup failed — libtermuxbootstrap.so missing from native lib dir"
+            val bootstrapPayload = getBootstrapPayload()
+            if (!bootstrapPayload.exists()) {
+                AppLogger.log("TermuxBootstrapper", "Termux bootstrap payload missing: ${bootstrapPayload.absolutePath}")
+                _status.value = "Setup failed — bootstrap payload missing"
                 return@withContext false
             }
-            AppLogger.log("TermuxBootstrapper", "Using bundled bootstrap from ${bootstrapZip.absolutePath}")
+            AppLogger.log("TermuxBootstrapper", "Using bundled Termux payload ${bootstrapPayload.absolutePath}")
 
             _status.value = "Extracting Termux bootstrap..."
-            ZipInputStream(bootstrapZip.inputStream()).use { zip ->
+            ZipInputStream(bootstrapPayload.inputStream()).use { zip ->
                 var entry = zip.nextEntry
                 while (entry != null) {
                     val outFile = File(env.usrDir, entry.name)

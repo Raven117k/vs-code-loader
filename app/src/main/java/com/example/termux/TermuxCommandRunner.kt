@@ -34,9 +34,10 @@ class TermuxCommandRunner(context: Context) {
                 val process = builder.start()
                 activeProcess = process
                 val reader = BufferedReader(InputStreamReader(process.inputStream))
-                var line: String?
-                while (coroutineContext.isActive && reader.readLine().also { line = it } != null) {
-                    line?.let { onLine(it); AppLogger.log("Guest", it) }
+                while (coroutineContext.isActive) {
+                    val line = reader.readLine() ?: break
+                    onLine(line)
+                    AppLogger.log("Guest", line)
                 }
                 if (!coroutineContext.isActive) {
                     process.destroy()
