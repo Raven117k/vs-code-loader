@@ -18,10 +18,8 @@ class ProotManager(private val context: Context) {
 
         // Core proot options
         args.add("-0") // Simulate root user
-        args.add("--bind")
-        args.add("/system:/system")
-        args.add("--bind")
-        args.add("/data:/data")
+        args.add("--bind=/system:/system")
+        args.add("--bind=/data:/data")
 
         // Root directory definition
         args.add("-r")
@@ -40,8 +38,7 @@ class ProotManager(private val context: Context) {
         args.add("${tmpDir.absolutePath}:/tmp")
 
         // Keep the guest isolated from Android-specific paths that trigger weird proot behavior
-        args.add("-b")
-        args.add("/sdcard:/sdcard")
+        args.add("-b=/sdcard:/sdcard")
 
         // Set working directory inside guest
         args.add("-w")
