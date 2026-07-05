@@ -21,6 +21,12 @@ class ProotManager(private val context: Context) {
         // Core proot options
         args.add("-0") // Simulate root user privileges
         
+        // Pass the loader explicitly via CLI flags as well to ensure fallback stability
+        if (prootLoader.exists()) {
+            args.add("-l")
+            args.add(prootLoader.absolutePath)
+        }
+        
         // Root directory definition
         args.add("-r")
         args.add(rootfsDir.absolutePath)
@@ -29,8 +35,7 @@ class ProotManager(private val context: Context) {
         args.add("-b")
         args.add("/system:/system")
 
-        // ❌ REMOVED: Binding all of /data causes a recursive crash because your app's files are inside /data.
-        // Instead, we bind only what is strictly necessary or safe.
+        // Safe system bindings
         args.add("-b")
         args.add("/dev:/dev")
 
@@ -61,13 +66,21 @@ class ProotManager(private val context: Context) {
     }
 
     fun getProotEnvironment(): Map<String, String> {
-        return mapOf(
-            "LD_PRELOAD" to "",
-            "LD_LIBRARY_PATH" to "",
-            "PROOT_TMPDIR" to tmpDir.absolutePath,
-            "PROOT_TMP_DIR" to tmpDir.absolutePath,
-            "HOME" to "/root",
-            "PATH" to "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-        )
+        val env = mutableMapOf<String, String>()
+        
+        // CRITICAL: Point LD_PRELOAD to our actual companion loader asset.
+        // This stops PRoot from crashing out on the restricted ptrace engine.
+        env["LD_PRELOAD"] = prootLoader.absolutePath
+        
+        env["LD_LIBRARY_PATH"] = ""
+        env["PROOT_TMPDIR"] = tmpDir.absolutePath
+        env["PROOT_TMP_DIR"] = tmpDir.absolutePath
+        env["HOME"] = "/root"
+        env["PATH"] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        
+        // Force PRoot to bypass kernel system call filters that are blocked on emulators
+        env["PROOT_NO_SECCOMP"] = "1"
+        
+        return env
     }
 }
