@@ -64,7 +64,7 @@ class RootfsBootstrapper(private val context: Context) {
             // NOTE: verify "v1.10.1" is still current at
             // https://github.com/termux/proot-distro/releases before relying on this
             val version = "v1.10.1"
-            val distroAbi = if (abi == "x86_64") "x86_64" else "aarch64"
+            val distroAbi = if (systemabi == "x86_64") "x86_64" else "aarch64"
             "https://github.com/termux/proot-distro/releases/download/$version/debian-$distroAbi-pd-$version.tar.xz"
         }
     }
