@@ -49,7 +49,7 @@ class RootfsBootstrapper(private val context: Context) {
     fun getProotUrl(): String {
         val abi = getDeviceAbi()
         return if (abi == "x86_64") {
-            "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-x86_64"
+            "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-aarch64"
         } else {
             "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-aarch64"
         }
@@ -58,7 +58,7 @@ class RootfsBootstrapper(private val context: Context) {
     fun getProotLoaderUrl(): String {
         val abi = getDeviceAbi()
         return if (abi == "x86_64") {
-            "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-loader-x86_64"
+            "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-loader-aarch64"
         } else {
             "https://github.com/Raven117k/proot/releases/download/v1.0-proot/proot-loader-aarch64"
         }
