@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeveloperMode
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
@@ -83,8 +84,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -188,6 +191,16 @@ fun MainControlPanel(
     val logs by AppLogger.logs.collectAsState()
     val lastLogLine by AppLogger.lastLogLine.collectAsState()
     var showLogs by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
+
+    val copyLogsToClipboard: () -> Unit = {
+        if (logs.isNotEmpty()) {
+            clipboardManager.setText(AnnotatedString(logs.joinToString("\n")))
+            Toast.makeText(context, "Logs copied to clipboard", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "No logs to copy", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     // Permission States
     var hasPermissions by remember { mutableStateOf(PermissionHelper.hasNotificationPermission(context)) }
@@ -443,12 +456,16 @@ fun MainControlPanel(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { showLogs = !showLogs }
                             .padding(vertical = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { showLogs = !showLogs },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Terminal,
                                 contentDescription = "Terminal",
@@ -463,12 +480,22 @@ fun MainControlPanel(
                                 color = Color.Gray
                             )
                         }
-                        Icon(
-                            imageVector = if (showLogs) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
-                            contentDescription = "Expand",
-                            tint = Color.Gray,
-                            modifier = Modifier.size(18.dp)
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { copyLogsToClipboard() }, enabled = logs.isNotEmpty()) {
+                                Icon(
+                                    imageVector = Icons.Default.ContentCopy,
+                                    contentDescription = "Copy logs",
+                                    tint = if (logs.isNotEmpty()) Color(0xFFD0BCFF) else Color.Gray,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Icon(
+                                imageVector = if (showLogs) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                                contentDescription = "Expand",
+                                tint = Color.Gray,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
             }
