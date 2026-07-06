@@ -12,7 +12,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.example.ui.theme.MyApplicationTheme
 import com.termux.terminal.TerminalSession
 import com.termux.view.TerminalView
-import java.io.File
 
 class TermuxTerminalActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

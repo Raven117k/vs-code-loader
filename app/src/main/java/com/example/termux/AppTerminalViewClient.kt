@@ -3,30 +3,31 @@ package com.example.termux
 import android.view.KeyEvent
 import android.view.MotionEvent
 import com.termux.terminal.TerminalSession
-import com.termux.view.TerminalViewClient
 
-class AppTerminalViewClient : TerminalViewClient {
-    override fun onScale(scale: Float): Float = scale
-    override fun onSingleTapUp(e: MotionEvent?) = Unit
-    override fun shouldBackButtonBeMappedToEscape(): Boolean = false
-    override fun shouldEnforceCharBasedInput(): Boolean = true
-    override fun shouldUseCtrlSpaceWorkaround(): Boolean = false
-    override fun isTerminalViewSelected(): Boolean = true
-    override fun copyModeChanged(copyMode: Boolean) = Unit
-    override fun onKeyDown(keyCode: Int, e: KeyEvent?, session: TerminalSession?): Boolean = false
-    override fun onKeyUp(keyCode: Int, e: KeyEvent?): Boolean = false
-    override fun onLongPress(event: MotionEvent?): Boolean = false
-    override fun readControlKey(): Boolean = false
-    override fun readAltKey(): Boolean = false
-    override fun readShiftKey(): Boolean = false
-    override fun readFnKey(): Boolean = false
-    override fun onCodePoint(codePoint: Int, ctrlDown: Boolean, session: TerminalSession?): Boolean = false
-    override fun onEmulatorSet() = Unit
-    override fun logError(tag: String?, message: String?) = Unit
-    override fun logWarn(tag: String?, message: String?) = Unit
-    override fun logInfo(tag: String?, message: String?) = Unit
-    override fun logDebug(tag: String?, message: String?) = Unit
-    override fun logVerbose(tag: String?, message: String?) = Unit
-    override fun logStackTraceWithMessage(tag: String?, message: String?, e: Exception?) = Unit
-    override fun logStackTrace(tag: String?, e: Exception?) = Unit
+interface TerminalViewClient {
+    fun onScale(scale: Float): Float = scale
+    fun onSingleTapUp(e: MotionEvent?) = Unit
+    fun shouldBackButtonBeMappedToEscape(): Boolean = false
+    fun shouldEnforceCharBasedInput(): Boolean = true
+    fun shouldUseCtrlSpaceWorkaround(): Boolean = false
+    fun isTerminalViewSelected(): Boolean = true
+    fun copyModeChanged(copyMode: Boolean) = Unit
+    fun onKeyDown(keyCode: Int, e: KeyEvent?, session: TerminalSession?): Boolean = false
+    fun onKeyUp(keyCode: Int, e: KeyEvent?): Boolean = false
+    fun onLongPress(event: MotionEvent?): Boolean = false
+    fun readControlKey(): Boolean = false
+    fun readAltKey(): Boolean = false
+    fun readShiftKey(): Boolean = false
+    fun readFnKey(): Boolean = false
+    fun onCodePoint(codePoint: Int, ctrlDown: Boolean, session: TerminalSession?): Boolean = false
+    fun onEmulatorSet() = Unit
+    fun logError(tag: String?, message: String?) = Unit
+    fun logWarn(tag: String?, message: String?) = Unit
+    fun logInfo(tag: String?, message: String?) = Unit
+    fun logDebug(tag: String?, message: String?) = Unit
+    fun logVerbose(tag: String?, message: String?) = Unit
+    fun logStackTraceWithMessage(tag: String?, message: String?, e: Exception?) = Unit
+    fun logStackTrace(tag: String?, e: Exception?) = Unit
 }
+
+class AppTerminalViewClient : TerminalViewClient
