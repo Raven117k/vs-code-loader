@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VS Code Local Sandbox</title>
+    <!-- Include CDN Monaco Editor if online, fallback to solid textarea is automatic -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-darker: #181818;
+            --bg-dark: #1e1e1e;
+            --bg-light: #252526;
+            --bg-active: #37373d;
+            --text-color: #cccccc;
+            --text-bright: #ffffff;
+            --accent-color: #007acc;
+            --accent-hover: #0062a3;
+            --border-color: #3c3c3c;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-darker);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            height: 35px;
+            background-color: var(--bg-darker);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 10px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 12px;
+        }
+
+        .menu-items {
+            display: flex;
+            gap: 12px;
+        }
+
+        .menu-item {
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .menu-item:hover {
+            background-color: var(--bg-active);
+            color: var(--text-bright);
+        }
+
+        .app-title {
+            font-weight: 600;
+            color: var(--text-bright);
+        }
+
+        /* Main Workspace Container */
+        .workspace {
+            flex: 1;
+            display: flex;
+            flex-direction: row;
+            overflow: hidden;
+        }
+
+        /* Sidebar / Activity Bar */
+        .activity-bar {
+            width: 48px;
+            background-color: var(--bg-darker);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 10px;
+            gap: 20px;
+        }
+
+        .activity-icon {
+            font-size: 20px;
+            color: #858585;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            position: relative;
+        }
+
+        .activity-icon.active {
+            color: var(--text-bright);
+            border-left: 2px solid var(--accent-color);
+        }
+
+        .activity-icon:hover {
+            color: var(--text-bright);
+        }
+
+        /* Sidebar Explorer Panel */
+        .explorer {
+            width: 180px;
+            background-color: #252526;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            font-size: 12px;
+        }
+
+        .panel-header {
+            padding: 10px;
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #bbbbbb;
+        }
+
+        .file-list {
+            list-style: none;
+            padding: 8px 0;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            padding: 6px 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .file-item:hover {
+            background-color: var(--bg-active);
+        }
+
+        .file-item.active {
+            background-color: #37373d;
+            color: var(--text-bright);
+            border-left: 2px solid var(--accent-color);
+        }
+
+        /* Editor & Output Panes */
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-dark);
+            position: relative;
+        }
+
+        /* Editor Tabs */
+        .tabs {
+            height: 35px;
+            background-color: var(--bg-darker);
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            overflow-x: auto;
+        }
+
+        .tab {
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            border-right: 1px solid var(--border-color);
+            background-color: #2d2d2d;
+            cursor: pointer;
+            height: 100%;
+        }
+
+        .tab.active {
+            background-color: var(--bg-dark);
+            color: var(--text-bright);
+            border-top: 1px solid var(--accent-color);
+        }
+
+        /* Coding Textarea Canvas */
+        .code-editor {
+            flex: 1;
+            display: flex;
+            flex-direction: row;
+            position: relative;
+        }
+
+        .line-numbers {
+            width: 40px;
+            background-color: var(--bg-dark);
+            border-right: 1px solid var(--border-color);
+            text-align: right;
+            padding: 12px 8px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            color: #858585;
+            line-height: 20px;
+            user-select: none;
+        }
+
+        .text-canvas {
+            flex: 1;
+            background-color: var(--bg-dark);
+            color: #d4d4d4;
+            border: none;
+            outline: none;
+            resize: none;
+            padding: 12px;
+            font-family: 'Consolas', 'Courier New', Courier, monospace;
+            font-size: 14px;
+            line-height: 20px;
+            user-select: text;
+        }
+
+        /* Live Preview Frame Container */
+        .preview-pane {
+            flex: 1;
+            background-color: #ffffff;
+            border-left: 3px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .preview-header {
+            height: 35px;
+            background-color: var(--bg-darker);
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-bright);
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+        }
+
+        .preview-frame {
+            flex: 1;
+            border: none;
+            background-color: white;
+        }
+
+        /* Footer Info Bar */
+        .footer-bar {
+            height: 22px;
+            background-color: var(--accent-color);
+            color: var(--text-bright);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 10px;
+            font-size: 11px;
+        }
+
+        .footer-section {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn-run {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            outline: none;
+            padding: 4px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-run:hover {
+            background-color: var(--accent-hover);
+        }
+
+        /* Layout toggling support */
+        @media (max-width: 600px) {
+            .workspace {
+                flex-direction: column;
+            }
+            .explorer {
+                width: 100%;
+                height: 120px;
+            }
+            .preview-pane {
+                border-left: none;
+                border-top: 3px solid var(--border-color);
+                height: 40%;
+                flex: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- VS Code Top Bar -->
+    <div class="top-bar">
+        <div class="menu-items">
+            <span class="app-title"><i class="fa-brands fa-microsoft" style="color: #007acc; margin-right: 6px;"></i>VS Code Loader</span>
+            <span class="menu-item">File</span>
+            <span class="menu-item">Edit</span>
+            <span class="menu-item">Selection</span>
+            <span class="menu-item">Run</span>
+        </div>
+        <div>
+            <button class="btn-run" onclick="runCode()">
+                <i class="fa-solid fa-play"></i> Run Code
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Workspace -->
+    <div class="workspace">
+        
+        <!-- Activity Bar Icons -->
+        <div class="activity-bar">
+            <div class="activity-icon active" title="Explorer">
+                <i class="fa-regular fa-file"></i>
+            </div>
+            <div class="activity-icon" title="Search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </div>
+            <div class="activity-icon" title="Source Control">
+                <i class="fa-solid fa-code-branch"></i>
+            </div>
+            <div class="activity-icon" title="Extensions">
+                <i class="fa-solid fa-cubes"></i>
+            </div>
+        </div>
+
+        <!-- Explorer Sidebar Directory -->
+        <div class="explorer">
+            <div class="panel-header">
+                <span>Explorer: Project</span>
+                <i class="fa-solid fa-ellipsis"></i>
+            </div>
+            <ul class="file-list">
+                <li class="file-item active" onclick="switchFile('index.html')">
+                    <i class="fa-solid fa-code" style="color: #e34c26;"></i> index.html
+                </li>
+                <li class="file-item" onclick="switchFile('style.css')">
+                    <i class="fa-solid fa-hashtag" style="color: #264de4;"></i> style.css
+                </li>
+                <li class="file-item" onclick="switchFile('app.js')">
+                    <i class="fa-brands fa-js" style="color: #f0db4f;"></i> app.js
+                </li>
+            </ul>
+        </div>
+
+        <!-- Coding Editor Area -->
+        <div class="editor-container">
+            <div class="tabs">
+                <div class="tab active" id="tab-indicator">
+                    <i class="fa-solid fa-code"></i> <span id="tab-filename">index.html</span>
+                </div>
+            </div>
+
+            <div class="code-editor">
+                <div class="line-numbers" id="line-numbers-col">
+                    1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>10<br>11<br>12<br>13<br>14<br>15
+                </div>
+                <textarea class="text-canvas" id="editor-textarea" spellcheck="false" oninput="updateLineNumbers()"></textarea>
+            </div>
+        </div>
+
+        <!-- Visual Iframe Preview Pane -->
+        <div class="preview-pane">
+            <div class="preview-header">
+                <span><i class="fa-solid fa-window-maximize" style="margin-right: 6px;"></i> Live Browser View</span>
+                <i class="fa-solid fa-rotate-right" style="cursor: pointer;" onclick="runCode()"></i>
+            </div>
+            <iframe class="preview-frame" id="live-frame"></iframe>
+        </div>
+
+    </div>
+
+    <!-- VS Code Footer Status Bar -->
+    <div class="footer-bar">
+        <div class="footer-section">
+            <span><i class="fa-solid fa-code-branch"></i> master</span>
+            <span><i class="fa-solid fa-circle-notch"></i> 0 <i class="fa-solid fa-triangle-exclamation"></i> 0</span>
+        </div>
+        <div class="footer-section">
+            <span>UTF-8</span>
+            <span>HTML/CSS/JS Sandbox</span>
+            <span>Ln 1, Col 1</span>
+        </div>
+    </div>
+
+    <script>
+        // Storage of file contents
+        const files = {
+            'index.html': `<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="hero">
+        <h1>VS Code Sandbox</h1>
+        <p>You are running a lightweight in-app editor sandbox!</p>
+        <button id="action-btn">Click Me!</button>
+        <p id="counter">Taps: 0</p>
+    </div>
+    
+    <script src="app.js"><\/script>
+</body>
+</html>`,
+            'style.css': `body {
+    background: linear-gradient(135deg, #1e1e2f, #111119);
+    color: #ffffff;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+.hero {
+    text-align: center;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+h1 {
+    color: #007acc;
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+}
+
+button {
+    background-color: #007acc;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    font-size: 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 15px;
+    transition: background 0.2s;
+}
+
+button:hover {
+    background-color: #0062a3;
+}`,
+            'app.js': `// Dynamic Sandbox Actions
+let count = 0;
+const btn = document.getElementById('action-btn');
+const counterText = document.getElementById('counter');
+
+btn.addEventListener('click', () => {
+    count++;
+    counterText.innerText = "Taps: " + count;
+    btn.style.transform = "scale(0.95)";
+    setTimeout(() => {
+        btn.style.transform = "scale(1)";
+    }, 100);
+});`
+        };
+
+        let currentFile = 'index.html';
+        const editor = document.getElementById('editor-textarea');
+
+        // Init Editor
+        editor.value = files[currentFile];
+        updateLineNumbers();
+        runCode();
+
+        function switchFile(filename) {
+            // Save active
+            files[currentFile] = editor.value;
+
+            // Switch active list styling
+            const items = document.querySelectorAll('.file-item');
+            items.forEach(item => {
+                if(item.innerText.trim() === filename) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+
+            // Set content
+            currentFile = filename;
+            editor.value = files[currentFile];
+            
+            // Tab label update
+            document.getElementById('tab-filename').innerText = filename;
+            const tabIcon = document.getElementById('tab-indicator').querySelector('i');
+            tabIcon.className = '';
+            if (filename === 'index.html') tabIcon.className = 'fa-solid fa-code';
+            else if (filename === 'style.css') tabIcon.className = 'fa-solid fa-hashtag';
+            else tabIcon.className = 'fa-brands fa-js';
+
+            updateLineNumbers();
+        }
+
+        function updateLineNumbers() {
+            const lines = editor.value.split('\\n').length;
+            const col = document.getElementById('line-numbers-col');
+            let linesHtml = '';
+            for(let i = 1; i <= Math.max(lines, 15); i++) {
+                linesHtml += i + '<br>';
+            }
+            col.innerHTML = linesHtml;
+        }
+
+        function runCode() {
+            // Save active file text
+            files[currentFile] = editor.value;
+
+            const frame = document.getElementById('live-frame');
+            const doc = frame.contentDocument || frame.contentWindow.document;
+            
+            // Build raw document content injecting css and js
+            let html = files['index.html'];
+            const css = files['style.css'];
+            const js = files['app.js'];
+
+            // Replace style link
+            html = html.replace('<link rel="stylesheet" href="style.css">', `<style>${css}</style>`);
+            
+            // Replace script source
+            html = html.replace(/<script src="app.js"><\/script>/, `<script>${js}<\/script>`);
+
+            doc.open();
+            doc.write(html);
+            doc.close();
+        }
+    </script>
+</body>
+</html>
