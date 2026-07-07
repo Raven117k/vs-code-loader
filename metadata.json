@@ -1,6 +1,0 @@
-{
-  "name": "VS Code Loader",
-  "description": "Boot a local Linux container to run and access VS Code (code-server) natively on your device.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
