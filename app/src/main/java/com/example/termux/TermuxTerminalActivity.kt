@@ -1,6 +1,7 @@
 package com.example.termux
 
 import android.content.Context
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -8,6 +9,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
@@ -15,10 +17,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -27,6 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -50,7 +55,11 @@ import com.termux.view.TerminalViewClient
 class TermuxTerminalActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(
+                scrim = android.graphics.Color.TRANSPARENT
+            )
+        )
         setContent {
             MyApplicationTheme {
                 TermuxTerminalScreen()
@@ -74,61 +83,72 @@ fun TermuxTerminalScreen() {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(terminalTitle) },
-                actions = {
-                    IconButton(onClick = {
-                        terminalViewRef?.let { view ->
-                            view.requestFocus()
-                            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                            imm.hideSoftInputFromWindow(view.windowToken, 0)
-                        }
-                    }) {
-                        Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Hide keyboard")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            )
+            Surface(
+                shadowElevation = 4.dp,
+                tonalElevation = 3.dp,
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                Column {
+                    TopAppBar(
+                        title = { Text(terminalTitle) },
+                        actions = {
+                            IconButton(onClick = {
+                                terminalViewRef?.let { view ->
+                                    view.requestFocus()
+                                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                                    imm.hideSoftInputFromWindow(view.windowToken, 0)
+                                }
+                            }) {
+                                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Hide keyboard")
+                            }
+                        },
+                        windowInsets = TopAppBarDefaults.windowInsets.let {
+                            WindowInsets.statusBars
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            titleContentColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    )
+                    StatusBar(status = status, detail = statusDetail)
+                }
+            }
         }
     ) { innerPadding ->
-        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            StatusBar(status = status, detail = statusDetail)
+        AndroidView(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+            factory = { ctx ->
+                TerminalView(ctx, null).apply {
+                    setTextSize(28)
+                    keepScreenOn = true
+                    terminalViewRef = this
 
-            AndroidView(
-                modifier = Modifier.fillMaxSize(),
-                factory = { ctx ->
-                    TerminalView(ctx, null).apply {
-                        setTextSize(28)
-                        keepScreenOn = true
-                        terminalViewRef = this
-
-                        val session = createSession(
-                            environment = environment,
-                            onStatusChanged = { newStatus, detail ->
-                                Handler(Looper.getMainLooper()).post {
-                                    status = newStatus
-                                    statusDetail = detail
-                                }
-                            },
-                            onTitleChanged = { title ->
-                                Handler(Looper.getMainLooper()).post {
-                                    terminalTitle = title.ifBlank { "Terminal" }
-                                }
+                    val session = createSession(
+                        environment = environment,
+                        onStatusChanged = { newStatus, detail ->
+                            Handler(Looper.getMainLooper()).post {
+                                status = newStatus
+                                statusDetail = detail
                             }
-                        )
-                        attachSession(session)
-                        setTerminalViewClient(BasicTerminalViewClient())
-                        setOnClickListener {
-                            requestFocus()
-                            val imm = ctx.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                            imm.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT)
+                        },
+                        onTitleChanged = { title ->
+                            Handler(Looper.getMainLooper()).post {
+                                terminalTitle = title.ifBlank { "Terminal" }
+                            }
                         }
+                    )
+                    attachSession(session)
+                    setTerminalViewClient(BasicTerminalViewClient())
+                    setOnClickListener {
+                        requestFocus()
+                        val imm = ctx.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                        imm.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT)
                     }
                 }
-            )
-        }
+            }
+        )
     }
 }
 
