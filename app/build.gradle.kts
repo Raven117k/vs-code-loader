@@ -80,6 +80,12 @@ googleServices {
 
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
+configurations.all {
+  resolutionStrategy {
+    force("com.google.guava:guava:33.2.1-android")
+  }
+}
+
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
   implementation(platform(libs.firebase.bom))
@@ -107,6 +113,13 @@ dependencies {
   implementation(libs.converter.moshi)
   implementation(libs.firebase.ai)
   implementation(libs.firebase.appcheck.recaptcha)
+  implementation("com.github.termux.termux-app:terminal-view:0.118.3") {
+    exclude(group = "com.google.guava", module = "guava")
+  }
+  implementation("com.github.termux.termux-app:terminal-emulator:0.118.3") {
+    exclude(group = "com.google.guava", module = "guava")
+  }
+  implementation("com.google.guava:guava:33.2.1-android")
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.logging.interceptor)

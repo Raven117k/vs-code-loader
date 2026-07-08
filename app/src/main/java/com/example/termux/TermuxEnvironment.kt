@@ -40,6 +40,18 @@ class TermuxEnvironment(private val context: Context) {
         return candidates.firstOrNull { it.exists() } ?: File(binDir, name)
     }
 
+    fun resolveShellBinary(): File {
+        return listOf(
+            resolveBinary("bash"),
+            resolveBinary("sh"),
+            resolveBinary("busybox")
+        ).firstOrNull { it.exists() } ?: resolveBinary("bash")
+    }
+
+    fun buildEnvironmentArray(): Array<String> {
+        return getEnvironment().map { (key, value) -> "$key=$value" }.toTypedArray()
+    }
+
     fun isReady(): Boolean {
         val ready = listOf("bash", "sh", "busybox").any { resolveBinary(it).exists() }
         if (!ready) AppLogger.log("TermuxEnvironment", "No Termux shell binaries found yet")
