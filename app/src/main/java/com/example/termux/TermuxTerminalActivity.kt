@@ -69,7 +69,6 @@ private fun createSession(environment: TermuxEnvironment): TerminalSession {
         override fun onBell(session: TerminalSession) {}
         override fun onColorsChanged(session: TerminalSession) {}
         override fun onTerminalCursorStateChange(state: Boolean) {}
-        override fun setTerminalShellPid(session: TerminalSession, pid: Int) {}
         override fun getTerminalCursorStyle(): Int? = null
         override fun logError(tag: String?, message: String?) {}
         override fun logWarn(tag: String?, message: String?) {}
@@ -92,7 +91,8 @@ private fun createSession(environment: TermuxEnvironment): TerminalSession {
 
 private class BasicTerminalViewClient : TerminalViewClient {
     override fun onScale(scale: Float): Float = scale
-    override fun onSingleTapUp(e: MotionEvent?) {}
+    override fun onSingleTapUp(e: MotionEvent?): Boolean = false
+    override fun onLongPress(event: MotionEvent?): Boolean = false
     override fun shouldBackButtonBeMappedToEscape(): Boolean = false
     override fun shouldEnforceCharBasedInput(): Boolean = true
     override fun shouldUseCtrlSpaceWorkaround(): Boolean = false
