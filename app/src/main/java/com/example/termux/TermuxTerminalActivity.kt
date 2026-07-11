@@ -120,13 +120,15 @@ fun TermuxTerminalScreen() {
                 .fillMaxSize()
                 .padding(innerPadding),
             factory = { ctx ->
-                TerminalView(ctx, null).apply {
+                val view = TerminalView(ctx, null)
+                view.apply {
                     setTextSize(28)
                     keepScreenOn = true
                     terminalViewRef = this
 
                     val session = createSession(
                         environment = environment,
+                        terminalView = view,
                         onStatusChanged = { newStatus, detail ->
                             Handler(Looper.getMainLooper()).post {
                                 status = newStatus
@@ -183,6 +185,7 @@ private fun StatusBar(status: SessionStatus, detail: String) {
 
 private fun createSession(
     environment: TermuxEnvironment,
+    terminalView: TerminalView,
     onStatusChanged: (SessionStatus, String) -> Unit,
     onTitleChanged: (String) -> Unit
 ): TerminalSession {
@@ -192,7 +195,10 @@ private fun createSession(
 
     val client = object : TerminalSessionClient {
         override fun onTextChanged(session: TerminalSession) {
-            onStatusChanged(SessionStatus.RUNNING, shellPath.substringAfterLast('/'))
+            // Critical: this is what actually repaints the terminal screen.
+            // Without this call the session updates internally but the
+            // TerminalView never redraws, making the terminal look frozen.
+            terminalView.onScreenUpdated()
         }
         override fun onTitleChanged(session: TerminalSession) {
             onTitleChanged(session.title ?: "Terminal")
@@ -204,8 +210,12 @@ private fun createSession(
         override fun onCopyTextToClipboard(session: TerminalSession, text: String) {}
         override fun onPasteTextFromClipboard(session: TerminalSession?) {}
         override fun onBell(session: TerminalSession) {}
-        override fun onColorsChanged(session: TerminalSession) {}
-        override fun onTerminalCursorStateChange(state: Boolean) {}
+        override fun onColorsChanged(session: TerminalSession) {
+            terminalView.onScreenUpdated()
+        }
+        override fun onTerminalCursorStateChange(state: Boolean) {
+            terminalView.invalidate()
+        }
         override fun getTerminalCursorStyle(): Int? = null
         override fun logError(tag: String?, message: String?) {}
         override fun logWarn(tag: String?, message: String?) {}
