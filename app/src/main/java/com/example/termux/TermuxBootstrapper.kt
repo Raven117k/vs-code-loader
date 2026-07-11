@@ -39,9 +39,11 @@ class TermuxBootstrapper(private val context: Context) {
     suspend fun bootstrap(distro: String = "Alpine", customRootfsUrl: String? = null): Boolean = withContext(Dispatchers.IO) {
         AppLogger.log("TermuxBootstrapper", "Starting Termux-native bootstrap...")
         _progress.value = 0f
+
         if (customRootfsUrl != null) {
             AppLogger.log("TermuxBootstrapper", "Ignoring custom rootfs URL for Termux native bootstrap: $customRootfsUrl")
         }
+
         try {
             _status.value = "Preparing environment..."
             env.ensureLayout()
@@ -80,7 +82,9 @@ class TermuxBootstrapper(private val context: Context) {
             patchHardcodedPrefix(env.usrDir)
             _progress.value = 0.85f
 
+            _status.value = "Restoring executable permissions..."
             fixExecutablePermissions(env.usrDir)
+            _progress.value = 0.95f
 
             _status.value = "Verifying Termux binaries..."
             if (!env.isReady()) {
@@ -107,6 +111,7 @@ class TermuxBootstrapper(private val context: Context) {
             AppLogger.log("TermuxBootstrapper", "No SYMLINKS.txt found — skipping symlink step")
             return
         }
+
         symlinksFile.forEachLine { rawLine ->
             val line = rawLine.trim()
             if (line.isEmpty()) return@forEachLine
@@ -165,11 +170,42 @@ class TermuxBootstrapper(private val context: Context) {
         AppLogger.log("TermuxBootstrapper", "Patched hardcoded prefix in $patchedCount script(s)")
     }
 
+    /**
+     * Java's ZipInputStream does not preserve Unix executable permission bits
+     * during extraction, so every extracted file lands as non-executable
+     * regardless of what the original archive entry specified. This restores
+     * the executable bit on anything that needs to run as a binary — checking
+     * the full path rather than just the immediate parent folder, since
+     * binaries like apt's http/https methods live several directories deep
+     * (usr/lib/apt/methods/http), not just directly inside bin/ or lib/.
+     */
     private fun fixExecutablePermissions(directory: File) {
+        var fixedCount = 0
+
         directory.walkTopDown().forEach { file ->
-            if (file.isFile && (file.parentFile?.name == "bin" || file.parentFile?.name == "local" || file.parentFile?.name == "lib")) {
-                file.setExecutable(true, false)
+            if (!file.isFile) return@forEach
+
+            val path = file.absolutePath
+            val shouldBeExecutable =
+                path.contains("/bin/") ||
+                path.contains("/lib/apt/methods/") ||
+                path.contains("/libexec/") ||
+                path.endsWith(".so") ||
+                file.name == "dpkg" ||
+                file.name == "apt"
+
+            if (shouldBeExecutable) {
+                if (file.setExecutable(true, false)) {
+                    fixedCount++
+                } else {
+                    AppLogger.log("TermuxBootstrapper", "WARNING: failed to set +x on ${file.name}")
+                }
             }
+
+            // Everything should be at least readable
+            file.setReadable(true, false)
         }
+
+        AppLogger.log("TermuxBootstrapper", "Restored executable permission on $fixedCount file(s)")
     }
 }
