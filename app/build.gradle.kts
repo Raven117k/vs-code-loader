@@ -61,6 +61,7 @@ android {
   packaging {
     jniLibs {
       useLegacyPackaging = true
+      keepDebugSymbols += "**/libtermuxbootstrap.so"
     }
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
