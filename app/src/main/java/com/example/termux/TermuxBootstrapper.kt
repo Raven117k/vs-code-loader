@@ -36,17 +36,16 @@ class TermuxBootstrapper(private val context: Context) {
         return if (candidate.exists()) candidate else File(context.applicationInfo.nativeLibraryDir, "libtermuxbootstrap.so")
     }
 
-    suspend fun bootstrap(): Boolean = withContext(Dispatchers.IO) {
+    suspend fun bootstrap(distro: String = "Alpine", customRootfsUrl: String? = null): Boolean = withContext(Dispatchers.IO) {
         AppLogger.log("TermuxBootstrapper", "Starting Termux-native bootstrap...")
         _progress.value = 0f
 
+        if (customRootfsUrl != null) {
+            AppLogger.log("TermuxBootstrapper", "Ignoring custom rootfs URL for Termux native bootstrap: $customRootfsUrl")
+        }
+
         try {
             _status.value = "Preparing environment..."
-            // Wipe any stale usr/ from a previous failed/partial bootstrap so leftover
-            // files or dangling symlinks (e.g. bin/su) can never survive into a retry.
-            if (env.usrDir.exists()) {
-                env.usrDir.deleteRecursively()
-            }
             env.ensureLayout()
 
             _status.value = "Checking bundled Termux payload..."
@@ -67,12 +66,6 @@ class TermuxBootstrapper(private val context: Context) {
                         outFile.mkdirs()
                     } else {
                         outFile.parentFile?.mkdirs()
-                        // File.exists() follows symlinks and returns false for a dangling
-                        // one, so a stale broken link here would slip past a plain exists()
-                        // check and then fail with ENOENT when opened for writing. Always
-                        // delete whatever's at this path first — File.delete() acts on the
-                        // link itself, not its target, so this is safe either way.
-                        outFile.delete()
                         outFile.outputStream().use { zip.copyTo(it) }
                     }
                     zip.closeEntry()
