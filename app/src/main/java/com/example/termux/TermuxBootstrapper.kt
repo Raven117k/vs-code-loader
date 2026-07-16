@@ -62,11 +62,18 @@ class TermuxBootstrapper(private val context: Context) {
                 var entry = zip.nextEntry
                 while (entry != null) {
                     val outFile = File(env.usrDir, entry.name)
-                    if (entry.isDirectory) {
-                        outFile.mkdirs()
-                    } else {
-                        outFile.parentFile?.mkdirs()
-                        outFile.outputStream().use { zip.copyTo(it) }
+                    try {
+                        if (entry.isDirectory) {
+                            outFile.mkdirs()
+                        } else {
+                            outFile.parentFile?.mkdirs()
+                            outFile.outputStream().use { zip.copyTo(it) }
+                        }
+                    } catch (e: Exception) {
+                        // Some OEM ROMs (MIUI etc.) block creation of files named "su" as an
+                        // anti-root heuristic. Skip the offending entry instead of aborting
+                        // the whole bootstrap — it's not required for running code-server.
+                        AppLogger.log("TermuxBootstrapper", "Skipping entry '${entry.name}': ${e.message}")
                     }
                     zip.closeEntry()
                     entry = zip.nextEntry
