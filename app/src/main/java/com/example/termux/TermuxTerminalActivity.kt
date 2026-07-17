@@ -1,5 +1,7 @@
 package com.example.termux
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
@@ -25,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -80,6 +83,7 @@ fun TermuxTerminalScreen() {
     var statusDetail by remember { mutableStateOf("Booting shell…") }
     var terminalTitle by remember { mutableStateOf("Terminal") }
     var terminalViewRef by remember { mutableStateOf<TerminalView?>(null) }
+    var terminalSessionRef by remember { mutableStateOf<TerminalSession?>(null) }
 
     Scaffold(
         topBar = {
@@ -92,6 +96,17 @@ fun TermuxTerminalScreen() {
                     TopAppBar(
                         title = { Text(terminalTitle) },
                         actions = {
+                            IconButton(onClick = {
+                                val transcript = terminalSessionRef
+                                    ?.emulator
+                                    ?.screen
+                                    ?.getTranscriptText()
+                                    .orEmpty()
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                clipboard.setPrimaryClip(ClipData.newPlainText("Terminal output", transcript))
+                            }) {
+                                Icon(Icons.Filled.ContentCopy, contentDescription = "Copy terminal output")
+                            }
                             IconButton(onClick = {
                                 terminalViewRef?.let { view ->
                                     view.requestFocus()
@@ -141,6 +156,7 @@ fun TermuxTerminalScreen() {
                             }
                         }
                     )
+                    terminalSessionRef = session
                     attachSession(session)
                     setTerminalViewClient(BasicTerminalViewClient())
                     setOnClickListener {
@@ -252,7 +268,7 @@ private class BasicTerminalViewClient : TerminalViewClient {
             session.write("\r")
             return true
         }
-        return false
+        return false  
     }
     override fun onKeyUp(keyCode: Int, e: KeyEvent): Boolean = false
     override fun readControlKey(): Boolean = false
