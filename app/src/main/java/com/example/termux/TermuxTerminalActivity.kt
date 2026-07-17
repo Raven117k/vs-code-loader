@@ -247,7 +247,13 @@ private class BasicTerminalViewClient : TerminalViewClient {
     override fun shouldUseCtrlSpaceWorkaround(): Boolean = false
     override fun isTerminalViewSelected(): Boolean = true
     override fun copyModeChanged(copyMode: Boolean) {}
-    override fun onKeyDown(keyCode: Int, e: KeyEvent, session: TerminalSession): Boolean = false
+    override fun onKeyDown(keyCode: Int, e: KeyEvent, session: TerminalSession): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+            session.write("\r")
+            return true
+        }
+        return false
+    }
     override fun onKeyUp(keyCode: Int, e: KeyEvent): Boolean = false
     override fun readControlKey(): Boolean = false
     override fun readAltKey(): Boolean = false
