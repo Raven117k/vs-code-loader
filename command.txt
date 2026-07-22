@@ -1,0 +1,1 @@
+adb -s emulator-5556 shell ime set com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME
